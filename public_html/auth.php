@@ -1,7 +1,7 @@
 <?php
 function authenticate_user($token, $dbConnection) {
     // check if token is provided in the request header or query parameter or default to dev_mode_token if dev mode is enabled
-    if (empty($token) && $GLOBALS['config']['devmode'] == 1) {
+    if (empty($token) && DEVMODE == 1) {
         $token = DEV_MODE_TOKEN;
     }
 

@@ -63,6 +63,7 @@ class InfractionService
 
         // Return results along with pagination details
         return [
+            'results' => $results,
             'pagination' => [
                 'totalPageItems' => count($results),
                 'totalItems' => $totalItems,
@@ -70,7 +71,6 @@ class InfractionService
                 'perPage' => $perPage,
                 'currentPage' => $page
             ],            
-            'results' => $results,
         ];
     }
 

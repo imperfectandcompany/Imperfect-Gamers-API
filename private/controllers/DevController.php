@@ -30,7 +30,7 @@ class DevController {
     }
 
     public function listRoutes() {
-        if (!$GLOBALS['config']['devmode']) {
+        if (!DEVMODE) {
             // This route should only be accessible in devmode.
             http_response_code(ERROR_NOT_FOUND);
             echo '404 - Not Found';

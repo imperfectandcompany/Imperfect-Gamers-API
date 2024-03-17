@@ -1,7 +1,6 @@
 <?php
 
-//TODO: add more extensive error handling and logging, e
-// specially for scenarios where file inclusions or cache operations fail.
+//TODO: add more extensive error handling and logging, especially for scenarios where file inclusions or cache operations fail.
 
 /**
  * LocalizationManager class handles the loading and retrieval of localized strings
@@ -42,12 +41,12 @@ class LocalizationManager
      * @param string|null $defaultLocale The default locale (e.g., 'en_US').
      * @param LocalizationCache $cache The cache instance for storing loaded constants.
      */
-    public function __construct(LocalizationCache $cache)
+    public function __construct(LocalizationCache $cache, string $baseD, string $environment = 'prod', string $defaultLocale = 'en_US')
     {
-        $this->baseDirectory = $GLOBALS['config']['private_folder'] . "/constants";
+        $this->baseDirectory = $baseD . "/constants";
         $this->loadConstants('system_constants.php');
-        $this->environment = devmode ? 'dev' : 'prod';
-        $this->defaultLocale = region;
+        $this->environment = $environment ? 'dev' : 'prod';
+        $this->defaultLocale = $defaultLocale;
         $this->cache = $cache;
         $this->loadConstants('db_constants.php');
         $this->loadConstants('application_constants.php');

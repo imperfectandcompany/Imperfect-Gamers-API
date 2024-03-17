@@ -2,7 +2,7 @@
 
 //dbconf includes database details i can't pass to github, config stores all global data and soon will do more... we will decouple
 //this ultimately!
-require($GLOBALS['config']['private_folder'] . "/dbconfig.php");
+require(PRIVATE_FOLDER . "/dbconfig.php");
 //Database variables
 $GLOBALS['db_conf']['db_host']  =    $domain;
 $GLOBALS['db_conf']['db_user']  =    $user;

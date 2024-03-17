@@ -1,14 +1,8 @@
 <?php
-include($GLOBALS['config']['private_folder'] . '/classes/class.logger.php');
-/*
+include(PRIVATE_FOLDER.'/classes/class.logger.php');
 
-add tests to route matching, parameter validation, controller instantiation, and method invocation so that the router can be tested in isolation
-
-todo:  router does not handle default values for method arguments.
-*/
-class Router
-{
-
+class Router {
+    
     protected $routes = [];
 
     public function add($uri, $controller, $requestMethod, $documentation = null)
@@ -18,15 +12,15 @@ class Router
         if (empty($uri) || substr($uri, 0, 1) !== '/') {
             throw new Exception("Invalid route URI: '$uri'.");
         }
-
+        
         // Remove trailing slash from the URI
         $uri = rtrim($uri, '/');
-
+        
         // Check if the controller and method names are valid
         if (strpos($controller, '@') === false) {
             throw new Exception("Invalid controller and method name: '$controller'.");
         }
-
+        
         // Split the controller and method names
         list($controllerName, $methodName) = explode('@', $controller);
 
@@ -34,24 +28,24 @@ class Router
         if (empty($methodName)) {
             throw new Exception("Method name not provided for controller: '$controllerName'.");
         }
-
-
+        
+        
         // Check if a route with the same URI and request method already exists
         if (isset($this->routes[$uri]['methods'][$requestMethod])) {
             throw new Exception("Route with URI '$uri' and request method '$requestMethod' already exists.");
         }
-
+        
         $newSegments = explode('/', $uri);
 
         // Check if the endpoint matches any existing routes
         foreach ($this->routes as $existingUri => $existingRoute) {
             if ($existingUri !== $uri && count($existingRoute['params']) === count($newSegments)) {
                 $existingSegments = explode('/', $existingUri);
-
+                
                 $same = true;
                 $params = array();
 
-
+                
                 for ($i = 0; $i < count($existingSegments); $i++) {
                     if ($existingSegments[$i] !== $newSegments[$i] && substr($existingSegments[$i], 0, 1) !== ':') {
                         $same = false;
@@ -60,17 +54,17 @@ class Router
                         $params[] = substr($existingSegments[$i], 1);
                     }
                 }
-
+                
                 if ($same && !empty($params)) {
                     throw new Exception("Route with URI '$uri' conflicts with existing route '$existingUri'.");
                 }
             }
         }
-
+        
         // Check if the controller file exists
         $controllerDir = '../private/controllers/';
         $controllerPath = $controllerDir . $controllerName . '.php';
-
+        
         if (!file_exists($controllerPath)) {
             throw new Exception("Controller file '$controllerName.php' not found.");
         }
@@ -86,19 +80,19 @@ class Router
         if (!in_array($requestMethod, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])) {
             throw new Exception("Invalid request method: '$requestMethod'.");
         }
-
+        
         // Extract parameters from the URI
-        $params = array_filter(explode('/', $uri), function ($segment) {
+        $params = array_filter(explode('/', $uri), function($segment) {
             return substr($segment, 0, 1) == ':';
         });
 
         // Check if any parameters are optional
-        $optionalParams = array_filter($params, function ($param) {
+        $optionalParams = array_filter($params, function($param) {
             return substr($param, -1) === '?';
         });
 
         // Remove the '?' character from optional parameters
-        $optionalParams = array_map(function ($param) {
+        $optionalParams = array_map(function($param) {
             return rtrim($param, '?~');
         }, $optionalParams);
 
@@ -109,7 +103,7 @@ class Router
                 'methods' => []
             ];
         }
-
+    
         $this->routes[$uri]['methods'][$requestMethod] = [
             'controller' => $controller,
         ];
@@ -140,21 +134,19 @@ class Router
     }
 
 
-    public function getRoutes()
-    {
+    public function getRoutes() {
         return $this->routes;
     }
-
-    public function routeExists($urlParts, $routes)
-    {
+    
+    public function routeExists($urlParts, $routes) {
         foreach ($routes as $route => $routeDetails) {
             $routeParts = explode('/', $route);
-
+            
             // Skip the route if the number of parts doesn't match
             if (count($urlParts) != count($routeParts)) {
                 continue;
             }
-
+    
             $matches = true; // Assume it's a match until proven otherwise
             for ($i = 0; $i < count($urlParts); $i++) {
                 // If a route part is a parameter, e.g. starts with ':', it's considered a match
@@ -164,27 +156,23 @@ class Router
                     break;  // Break out of the for loop if any part doesn't match
                 }
             }
-
+            
             // If we found a match, return true immediately
             if ($matches) {
                 return true;
             }
         }
-
+    
         // If we've checked all routes and found no matches, return false
         return false;
     }
-
+    
 
 
     public function dispatch($url, $dbManager, $devMode)
     {
         $url = implode('/', $url);
         $httpMethod = $_SERVER['REQUEST_METHOD'];
-        // handles cors preflight requests
-        if ($httpMethod == "OPTIONS") {
-            die();
-        }
         $routeMatched = false; // Flag to keep track if a route was dispatched
 
         // Loop through the routes to find a match
@@ -216,13 +204,13 @@ class Router
                 if (!isset($config['methods'][$_SERVER['REQUEST_METHOD']])) {
                     $this->handleError("Route with URI '$url' and request method '{$_SERVER['REQUEST_METHOD']}' not found.");
                     return;
-                }
+                }   
 
                 // Extract controller and method from route
                 list($controller, $method) = explode('@', $config['methods'][$_SERVER['REQUEST_METHOD']]['controller']);
-
+                
                 // Include the controller class
-                require_once $GLOBALS['config']['private_folder'] . "/controllers/{$controller}.php";
+                require_once PRIVATE_FOLDER . "/controllers/{$controller}.php";
 
                 // Check if controller and method exist
                 if (!class_exists($controller) || !method_exists($controller, $method)) {
@@ -230,11 +218,11 @@ class Router
                     return;
                 }
 
-                // Combine parameter names and values into associative array, ignoring optional parameters with no value
-                $params = array_intersect_key($routeParams, array_flip(array_filter($config['params'], function ($param) use ($routeParams) {
+                 // Combine parameter names and values into associative array, ignoring optional parameters with no value
+                 $params = array_intersect_key($routeParams, array_flip(array_filter($config['params'], function($param) use ($routeParams) {
                     return substr($param, -1) !== '?' || array_key_exists(rtrim($param, '?'), $routeParams);
                 })));
-
+                
                 // Validate the parameters
                 $validatedParams = $this->validateParams($controller, $method, $params);
                 if ($validatedParams === false) {
@@ -262,13 +250,6 @@ class Router
                             case 'body':
                                 // Extract parameters from the request body (e.g., JSON)
                                 $postBody = json_decode(file_get_contents("php://input"));
-                                if ($postBody === null) {
-                                    // Handle JSON decoding error
-                                    $this->handleError("Error decoding JSON data in request body");
-                                    return;
-                                }
-
-                                // Now check for the property
                                 if (property_exists($postBody, $paramName)) {
                                     $routeBodyParams[$paramName] = $postBody->$paramName;
                                 } else {
@@ -280,43 +261,41 @@ class Router
                         }
                     }
                 }
-                $logger = new Logger($dbManager->getConnection('default')); // 'default' is the general-purpose DB
+                $logger = new Logger($dbManager->getConnection());
                 // Call the controller method with the parameters
                 // TODO: Implement newly injected logger functionality throughout entire application
                 $controllerInstance = $controller !== 'DevController' ? new $controller($dbManager, $logger) : new $controller($dbManager, $this->routes);
-
+                
                 $controllerInstance->{$method}(...$validatedParams);
                 $routeMatched = true; // Set the flag to true as a route was dispatched
                 return;
             }
         }
         if (!$routeMatched) {
-            // if not main page, don't return anything
-            if ($url == '/') {
-                return;
-            }
+        // if not main page, don't return anything
+        if($url == '/'){
+            return;
+        }
 
-            // If no route is found, handle the error
-            $this->handleError("Route with URI '$url' not found.");
+        // If no route is found, handle the error
+        $this->handleError("Route with URI '$url' not found.");
         }
 
     }
 
     // Handle errors in development mode by displaying a message and error code
-    private function handleError($message)
-    {
+    private function handleError($message) {
         http_response_code(ERROR_NOT_FOUND);
-        if ($GLOBALS['config']['devmode']) {
+        if (DEVMODE) {
             echo "Error: $message";
         } else {
             echo "Error: Route not found.";
         }
     }
 
-    private function validateParams($controller, $method, $params)
-    {
+    private function validateParams($controller, $method, $params) {
         $methodParams = new ReflectionMethod($controller, $method);
-        $paramTypes = array_map(function ($param) {
+        $paramTypes = array_map(function($param) {
             return [
                 'param' => $param,
                 'type' => $param->getType(),
@@ -324,21 +303,19 @@ class Router
             ];
         }, $methodParams->getParameters());
 
-
+    
         // Validate the number and types of parameters
-        if (
-            count($params) < count(array_filter($paramTypes, function ($param) {
-                return !$param['isOptional'];
-            }))
-        ) {
+        if (count($params) < count(array_filter($paramTypes, function($param) {
+            return !$param['isOptional'];
+        }))) {
             return false;
         }
-
+    
         $validatedParams = array();
-
-
+        
+        
         foreach ($paramTypes as $param) {
-            $paramName = ':' . $param['param']->getName();
+            $paramName = ':'.$param['param']->getName();
             $paramType = $param['type'] ? $param['type']->getName() : 'string';
 
 
@@ -353,8 +330,8 @@ class Router
             }
 
             $value = $params[$paramName];
-
-
+            
+    
             switch ($paramType) {
                 case 'int':
                     $validatedValue = filter_var($value, FILTER_VALIDATE_INT);
@@ -368,17 +345,16 @@ class Router
                 default:
                     $validatedValue = $value;
             }
-
+    
             if ($validatedValue === false) {
                 return false;
             }
-
+    
             $validatedParams[] = $validatedValue;
         }
-
+    
         return $validatedParams;
     }
-
+    
 
 }
-
