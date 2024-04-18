@@ -261,7 +261,7 @@ class Router {
                         }
                     }
                 }
-                $logger = new Logger($dbManager->getConnection());
+                $logger = new Logger($dbConnection = $dbManager->getConnection('default'));
                 // Call the controller method with the parameters
                 // TODO: Implement newly injected logger functionality throughout entire application
                 $controllerInstance = $controller !== 'DevController' ? new $controller($dbManager, $logger) : new $controller($dbManager, $this->routes);

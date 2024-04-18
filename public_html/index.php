@@ -1,27 +1,28 @@
 <?php
-require_once("/usr/www/igfastdl/imperfectgamers-api/private/constants/localization_manager.php");
-require_once("/usr/www/igfastdl/imperfectgamers-api/private/classes/class.localizationCache.php");
+require_once ("/usr/www/igfastdl/imperfectgamers-api/private/constants/localization_manager.php");
+require_once ("/usr/www/igfastdl/imperfectgamers-api/private/classes/class.localizationCache.php");
 
 // Create a cache instance
 $cache = new LocalizationCache();
 
 // Initialize LocalizationManager with the cach
 $localizationManager = new LocalizationManager(
-    $cache, 
+    $cache,
     '/usr/www/igfastdl/imperfectgamers-api/private',
     'dev',
     'en_US'
 );
 
 $localizationManager->initialize();
-require_once('./security.php');
+require_once ('./security.php');
 
 
 // set timezone
 date_default_timezone_set(TIMEZONE);
 
 // start output buffering
-if(!ob_start("ob_gzhandler")) ob_start();
+if (!ob_start("ob_gzhandler"))
+    ob_start();
 // start session
 session_start();
 
@@ -31,9 +32,6 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 
 
-
-
-
 $GLOBALS['config']['private_folder'] = "/usr/www/igfastdl/imperfectgamers-api/private";
 
 $GLOBALS['config']['url_offset'] = 0;
@@ -41,8 +39,12 @@ $GLOBALS['config']['url_offset'] = 0;
 //This is how we get what page we should be on based on URL.
 $GLOBALS['url_loc'] = explode('/', htmlspecialchars(strtok($_SERVER['REQUEST_URI'], '?'), ENT_QUOTES));
 
-if($GLOBALS['config']['url_offset'] > 0){
-    $x = 0; while($x < ($GLOBALS['config']['url_offset'])){ unset($GLOBALS['url_loc'][$x]); $x++; }
+if ($GLOBALS['config']['url_offset'] > 0) {
+    $x = 0;
+    while ($x < ($GLOBALS['config']['url_offset'])) {
+        unset($GLOBALS['url_loc'][$x]);
+        $x++;
+    }
     $GLOBALS['url_loc'] = array_values($GLOBALS['url_loc']);
 }
 
@@ -75,18 +77,17 @@ $GLOBALS['messages']['test'] = array(); //Main array for all status messages
 
 
 // includes
-include($GLOBALS['config']['private_folder'] . '/functions/functions.general.php');
-include($GLOBALS['config']['private_folder'] . '/functions/functions.json.php');
-include($GLOBALS['config']['private_folder'] . '/functions/functions.database.php');
+include ($GLOBALS['config']['private_folder'] . '/functions/functions.general.php');
+include ($GLOBALS['config']['private_folder'] . '/functions/functions.json.php');
+include ($GLOBALS['config']['private_folder'] . '/functions/functions.database.php');
 
 
 
 // include the necessary files and create a database connection object
 require_once $GLOBALS['config']['private_folder'] . '/classes/class.database.php';
-require_once $GLOBALS['config']['private_folder'].'/classes/class.DatabaseManager.php';
-require_once $GLOBALS['config']['private_folder'].'/classes/class.user.php';
+require_once $GLOBALS['config']['private_folder'] . '/classes/class.DatabaseManager.php';
+require_once $GLOBALS['config']['private_folder'] . '/classes/class.user.php';
 require_once $GLOBALS['config']['private_folder'] . '/classes/class.dev.php';
-
 
 // Instantiate the DatabaseManager
 $dbManager = new DatabaseManager();
@@ -115,41 +116,41 @@ $dbManager->addConnectionParams('gameserver', [
 require_once $GLOBALS['config']['private_folder'] . '/classes/class.router.php';
 
 
-require("./auth.php");
-// check if token is provided in the request header or query parameter or default to dev_mode_token if dev mode is enabled
+require ("./auth.php");
 $token = isset($_SERVER['HTTP_AUTHORIZATION']) ? $_SERVER['HTTP_AUTHORIZATION'] : '';
+
 if (empty($token)) {
     $token = isset($_GET['token']) ? $_GET['token'] : '';
 }
+
 
 $GLOBALS['config']['testmode'] = TESTMODE; //This initializes the test value
 
 // authenticate the user
 $result = authenticate_user($token, $dbManager->getConnection());
 
-    // get an instance of the Devmode class
-    $devMode = new Dev($dbManager->getConnection());
-    $GLOBALS['config']['devmode'] = 0;
+// get an instance of the Devmode class
+$GLOBALS['config']['devmode'] = DEVMODE;
 
 
 
-    // // Create a cache instance
-    // $cache = new LocalizationCache();
+// // Create a cache instance
+// $cache = new LocalizationCache();
 
-    // // Initialize LocalizationManager with the cache
-    // $localizationManager = new LocalizationManager(
-    //     $GLOBALS['config']['private_folder'] . "/constants",
-    //     $GLOBALS['config']['devmode'] ? 'dev' : 'prod',
-    //     'en_US',
-    //     $cache
-    // );
-    
-    // $message = $localizationManager->getLocalizedString('ERROR_LOGIN_FAILED');
-    
-    // echo $message;
-    // yo sterling was here lmaooo
-    // echo "afwefw;";
-    
+// // Initialize LocalizationManager with the cache
+// $localizationManager = new LocalizationManager(
+//     $GLOBALS['config']['private_folder'] . "/constants",
+//     $GLOBALS['config']['devmode'] ? 'dev' : 'prod',
+//     'en_US',
+//     $cache
+// );
+
+// $message = $localizationManager->getLocalizedString('ERROR_LOGIN_FAILED');
+
+// echo $message;
+// yo sterling was here lmaooo
+// echo "afwefw;";
+
 
 
 // handle case where user is not authenticated
@@ -160,8 +161,8 @@ $router = new Router();
 $notAuthenticatedRouter = new Router();
 
 // If dev mode is enabled and loggedIn is true, set $isLoggedIn for this page to true otherwise check if the token / login result status is not error
-DEVMODE === true && loggedIn === true ? $isLoggedIn = true : $isLoggedIn = !$result['status'] === 'error';
-
+DEVMODE === true && loggedIn === true ? $isLoggedIn = true : $isLoggedIn = $result['status'] === 'error' ? false : true;
+$echo = $isLoggedIn ? "Logged in" : "Not logged in";
 // Determine which router to add routes to
 $mutualRoute = $isLoggedIn ? $router : $notAuthenticatedRouter;
 
@@ -223,8 +224,12 @@ $mutualRoute->addDocumentation('/infractions/search/:query/type/:type/p/:page', 
 
 // Route to get infraction details by ID and type
 $mutualRoute->add('/infractions/item/:type/:id', 'InfractionController@getInfractionDetails', 'GET');
-$mutualRoute->addDocumentation('/infractions/item/:type/:id'
-, 'GET', 'Fetches details for a specific infraction by infraction type (comms/bans) ID.');
+$mutualRoute->addDocumentation(
+    '/infractions/item/:type/:id'
+    ,
+    'GET',
+    'Fetches details for a specific infraction by infraction type (comms/bans) ID.'
+);
 
 $mutualRoute->add('/infractions/details/:steamId/p/:page', 'InfractionController@getInfractionDetailsBySteamIdPaginated', 'GET');
 $mutualRoute->addDocumentation('/infractions/details/:steamId/p/:page', 'GET', 'Fetches paginated infraction details by Steam ID.');
@@ -276,19 +281,37 @@ if ($result['status'] === 'error') {
     // dispatch the request to the appropriate controller
     $notAuthenticatedRouter->dispatch($GLOBALS['url_loc'], $dbManager, 1);
     if (DEVMODE == 1) {
-        include(PRIVATE_FOLDER . '/frontend/devmode.php');
+        include (PRIVATE_FOLDER . '/frontend/devmode.php');
     }
     exit();
 }
+
+$router->add('/logout', 'UserController@logout', 'POST');
+$router->add('/user/onboarded', 'UserController@verifyOnboarding', 'GET');
+$router->addDocumentation('/user/onboarded', 'GET', 'Confirms whether the user completed onboarding or not.');
+$router->add('/user/verifySteam', 'UserController@checkSteamLink', 'POST');
+$router->addDocumentation('/user/verifySteam', 'POST', 'Verifies the logged in user has a steam account');
+
+$router->add('/auth/verifyToken', 'UserController@verifyToken', 'GET');
+$router->addDocumentation('/auth/verifyToken', 'GET', 'Returns true / success, since it passed through authenticated filter with token properly.');
+
+// Adding the route to check if a username already exists
+$router->add('/user/checkUsernameExistence', 'UserController@checkUsernameExistence', 'POST');
+$router->addDocumentation('/user/checkUsernameExistence', 'POST', 'Checks if the specified username already exists in the system.');
+
+$router->add('/user/changeusername', 'UserController@changeUsername', 'POST');
+$router->addDocumentation('/user/changeusername', 'POST', 'Changes the username of the user.');
+
 
 // set user ID and token in global variable
 $GLOBALS['user_id'] = $result['user_id'];
 
 $GLOBALS['token'] = $result['token'];
+$token = $result['token'];
 $GLOBALS['logged_in'] = true;
 
 // at this point we have our user_id and can set global data
-include_once(PRIVATE_FOLDER.'/data/user.php');
+include_once (PRIVATE_FOLDER . '/data/user.php');
 
 // if the user is authenticated, use that instance of the Router class and dispatch the incoming request
 
@@ -297,13 +320,13 @@ $router->dispatch($GLOBALS['url_loc'], $dbManager, DEVMODE);
 
 
 // Check if we're in devmode
-if(DEVMODE == 1){
-    include(PRIVATE_FOLDER.'/frontend/devmode.php');
+if (DEVMODE == 1) {
+    include (PRIVATE_FOLDER . '/frontend/devmode.php');
     if (DEVMODE && $GLOBALS['config']['testmode']) {
         // Run testing script
-        include_once(PRIVATE_FOLDER.'/tests/tests.php');
+        include_once (PRIVATE_FOLDER . '/tests/tests.php');
         $GLOBALS['config']['testmode'] = 0; //This disables testing
-    }  
+    }
 }
 
 

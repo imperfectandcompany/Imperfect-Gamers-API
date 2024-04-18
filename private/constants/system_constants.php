@@ -39,10 +39,8 @@ define('MAX_TIMELINE_LOOKUP', 30);
 define('AVATAR_MAX_SIZE', 156); // Assuming this is in KB
 define('DEFAULT_AVATAR', 'default.png');
 
-
 // Region setup
 define('REGION', 'en_US');
-
 
 require(BASE_DIRECTORY . '/private/dbconfig.php');
 
@@ -77,8 +75,6 @@ define('DB_NAME', $table);
 define('DB_PORT', '3306');
 define('DB_CHARSET', 'utf8mb4');
 
-
-
 // Game server database configurations
 define('GS_DB_HOST', $game_serverHost);
 define('GS_DB_PORT', $game_serverPort);
@@ -94,7 +90,7 @@ define('GS_DB_CHARSET', 'utf8mb4');
 // If needed, they could be adapted to constants or managed through another configuration strategy.
 
 // Dev Mode Token 
-define('DEV_MODE_TOKEN', '4c6dd8086fdcc9b859416ca264f513d9635f0204baa5d9b7bb95364eae39c43d0e0f81c9f4f5190395fd114384702b1f13f47c13d422d9e98499018a94c5cd5a');
+define('DEV_MODE_TOKEN', 'a299e5cde1fabac2d04480387a00d7698e1f509f85c9251c2992b46c80b6c3e259f0c2d56342e26f3ecb77835772c243eb89a010e8e037bd2942f6ff2777da62');
 
 define('baseDirectory', '/usr/www/igfastdl/postogon-api');
 define('SteamAPIKey', '52A66B13219F645834149F1A1180770A');
@@ -105,7 +101,7 @@ define('SteamAPIKey', '52A66B13219F645834149F1A1180770A');
 // Dev mode does not switch the environment, it simply enables or disables certain features
 // Development and Test Modes
 // Development mode (for debugging and development, not for production use)
-define('DEVMODE', true); // Converted 1 to true for clarity
+define('DEVMODE', false); // Converted 1 to true for clarity
 ###############################################
 // Dev mode must be enabled to use test mode //
 ###############################################
@@ -118,7 +114,7 @@ define('DEVMODE', true); // Converted 1 to true for clarity
 define('testmode', true);
 // Keep in mind when dev mode is enabled, loggedIn injects a token into the request
 // Meaning it spoofs your login for you, so you don't have to login to test the API
-define ('loggedIn', true);
+define ('loggedIn', false);
 // TODO Admin Login
 // Create a new instance for admin routes from router class
 // Admin logged is entirely separate login process from user login

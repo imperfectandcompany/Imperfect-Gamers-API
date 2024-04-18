@@ -115,9 +115,8 @@ function throwSuccess($message)
 function sendResponse($status, $data, $httpCode)
 {
     if ($GLOBALS['config']['testmode'] !== 1) {
-        echo json_response(['status' => $status] + $data);
+        echo json_response(['status' => $status] + $data, $httpCode);
         $GLOBALS['messages'][$status][] = $data && isset($data['message']) ? $data['message'] : null;
-        http_response_code($httpCode);
     } else {
         global $currentTest;
         if ($data && isset($data['message'])) {

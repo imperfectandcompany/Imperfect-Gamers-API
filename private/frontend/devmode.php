@@ -30,6 +30,23 @@
 <?php print_r($GLOBALS['url_loc']); ?>
 
 <h4>token</h4>
-<?php !defined(DEV_MODE_TOKEN) ? (!empty (DEV_MODE_TOKEN) ? print_r(DEV_MODE_TOKEN) : print "Token is empty</br>") : print "Token not available</br>"; ?>
+
+<?php 
+if($isLoggedIn){
+    if (isset($GLOBALS['logged_in']) && $GLOBALS['logged_in'] === false) {
+        // If logged_in is false, show the dev token if available 
+        if(DEVMODE === true && loggedIn){
+      !defined(DEV_MODE_TOKEN) ? (!empty (DEV_MODE_TOKEN) ? print_r(DEV_MODE_TOKEN) : print "Token is empty</br>") : print "Token not available</br>";
+        } else {
+            print "Logged In withing system_constants.php is not true.</br>";
+        }
+    } else {
+        print_r($GLOBALS['token']);
+    }
+} else {
+    print "Not logged in</br>";
+}
+?>
+
 <h4>user_id</h4>
 <?php echo isset ($GLOBALS['user_id']) ? $GLOBALS['user_id'] : "UserId not available</br><br><br>"; ?>

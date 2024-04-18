@@ -1,3 +1,10 @@
+RewriteEngine On
+
+# Pass the Authorization header to PHP through the environment variable HTTP_AUTHORIZATION
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Your existing rules
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_URI} (.+)/$
 RewriteRule ^ %1 [R=301,L]

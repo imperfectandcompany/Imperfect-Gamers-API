@@ -9,6 +9,8 @@ class InfractionController
     public function __construct($dbManager, $logger)
     {
         $this->dbConnection = $dbManager->getConnection('gameserver');
+        $this->secondaryConnection = $dbManager->getConnectionByDbName('gameserver', 'sharptimer');
+
         $this->logger = $logger;
     }
 
@@ -178,7 +180,7 @@ public function searchInfractionsByNameAndType(string $query, ?string $type = nu
     private function searchInfractions($query, $type, $page, ?int $perPage = null)
     {
         try {
-            $infractionService = new InfractionService($this->dbConnection);
+            $infractionService = new InfractionService($this->dbConnection, $this->secondaryConnection);
             $results = $infractionService->searchInfractionsByQuery($query, $type, $page, $perPage);
 
             // Log the action

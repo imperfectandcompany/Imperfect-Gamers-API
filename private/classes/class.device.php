@@ -65,6 +65,7 @@ class Device
             }
             // Check if this user finished onboarding (based on the username)
             $isOnboardingNotComplete = $this->isUserOnboarded($uid);
+            
 
             if ($isOnboardingNotComplete) {
                 throwWarning('Onboarding not completed');
@@ -72,6 +73,7 @@ class Device
                 throwWarning('User has onboarding completed');
             }
         }
+        
         // We get all the tokens associated by IP and log within the function
         $tokenService->logTokensByIp($_SERVER['REMOTE_ADDR']);
 
@@ -118,6 +120,60 @@ class Device
         }
     }
 
+
+
+    public function getDeviceIdByToken($token)
+    {
+        try {
+            $query = "SELECT device_id FROM login_tokens WHERE token = ?";
+            $params = [sha1($token)]; // Tokens are assumed to be stored hashed
+            $result = $this->dbObject->query($query, $params);
+            
+            if ($result && count($result) > 0) {
+                return $result[0]['device_id']; // Return the first matching device_id
+            }
+    
+            return null;
+        } catch (Exception $e) {
+            $this->logger->log(0, 'get_device_id_by_token_error', ['error_message' => $e->getMessage()]);
+            return null;
+        }
+    }
+    
+
+
+    /**
+ * Dissociates a device from the user's session.
+ * 
+ * @param int $userId The user's ID.
+ * @param array $deviceInfo Information about the device.
+ * @return bool True on success, false on failure.
+ */
+public function dissociateDevice($userId, $deviceId) {
+    try {
+        $filterParams = [
+            ['value' => 0, 'type' => PDO::PARAM_INT],
+            ['value' => $userId, 'type' => PDO::PARAM_INT],
+            // Use PDO::PARAM_INT for integer values
+            ['value' => $deviceId, 'type' => PDO::PARAM_INT],
+            // Use PDO::PARAM_STR for integer values
+        ];
+
+        $result = $this->dbObject->updateData("devices", "is_logged_in = ?", "user_id = ? AND id = ?", $filterParams);
+        
+        if (!$result) {
+            throw new Exception('Failed to dissociate device.');
+        }
+        
+        return true;
+    } catch (Exception $e) {
+        $this->logger->log($userId, 'device_dissociation_error', ['error_message' => $e->getMessage(), 'deviceId' => $deviceId]);
+        return false;
+    }
+}
+
+
+
     function associateDeviceIdWithLogin($user_id, $device_id, $device_name, $remote_ip)
     {
         // Assuming 'success' is 1 if the login is successful
@@ -137,7 +193,6 @@ class Device
 
         // Insert the data into the 'login_logs' table
         $insertResult = $this->dbObject->insertData('login_logs', $columnNames, $whereClause, $filterParams);
-
         // Check if the insert was successful
         if ($insertResult !== false) {
             // Insert IP address into 'device_ips' table
@@ -207,7 +262,6 @@ class Device
             if (is_array($userLogs) && !empty($userLogs2)) {
                 if ($userLogs["count"] > 0 || $userLogs2["count"] > 0) {
                     throwWarning('User has previous login logs');
-                    echo "omgf";
                     $this->logger->log(
                         $uid,
                         'previous_login_logs',
@@ -249,7 +303,6 @@ class Device
 
         return false;
     }
-
 
 
     /**
@@ -379,7 +432,7 @@ class Device
             $uidFilterParams = makeFilterParams($uid);
 
             // Query the users table to check if the username is empty for the given user.
-            $result = $this->dbObject->viewSingleData("users", "username", "WHERE id = ?", $uidFilterParams);
+            $result = $this->dbObject->viewSingleData("profiles", "username", "WHERE user_id = ?", $uidFilterParams);
             if ($result !== false) {
                 // If the query was successful, check if the username is empty.
                 if (empty($result["result"]['username'])) {

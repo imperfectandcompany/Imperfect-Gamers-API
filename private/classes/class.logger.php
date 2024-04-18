@@ -4,15 +4,18 @@
  * Handles logging of user activities in the database.
  */
 class Logger {
-    private $dbObject;
+    private $dbConnection;
 
     /**
      * Logger constructor.
      *
-     * @param DatabaseConnector $dbObject A database connection object.
+     * @param DatabaseConnector $dbConnection A database connection object.
      */
-    public function __construct($dbObject) {
-        $this->dbObject = $dbObject;
+    public function __construct($dbConnection, $secondaryDbConnection = null) {
+        $this->dbConnection = $dbConnection;
+        if($secondaryDbConnection) {
+            $this->secondaryDbConnection = $secondaryDbConnection;
+        }
     }
 
     /**
@@ -22,6 +25,7 @@ class Logger {
      * @param string $action The action being logged.
      * @param array|null $data Additional data related to the activity.
      */
+    // TODO add error handling for the query execution and error reporting
     public function log($userId, $action, $data = null) {
         if($userId == 0) {
             // if user is not logged in lets use uid 19 which is reserved for guest
@@ -30,7 +34,7 @@ class Logger {
         // Create a log entry in the database
         $query = "INSERT INTO activity_log (user_id, action, activity_data) VALUES (?, ?, ?)";
         $params = [$userId, $action, json_encode($data)];
-        $this->dbObject->query($query, $params);
+        $result = $this->dbConnection->query($query, $params);
     }
 
 /**
@@ -53,7 +57,7 @@ public function getUserLogsByAction($userId, $action) {
     $whereClause = "WHERE user_id = ? AND action = ?";
     $filter_params = makeFilterParams(array($userId, $action));
     
-    return $this->dbObject->viewData($table, $select, $whereClause, $filter_params); 
+    return $this->dbConnection->viewData($table, $select, $whereClause, $filter_params); 
 }
 
 
@@ -72,7 +76,7 @@ public function getUserLogsByAction($userId, $action) {
         // Create a log entry in the database with custom data
         $query = "INSERT INTO activity_log (user_id, action, activity_data, custom_data) VALUES (?, ?, ?, ?)";
         $params = [$userId, $action, json_encode($customData), json_encode($customData)];
-        $this->dbObject->query($query, $params);
+        $this->dbConnection->query($query, $params);
     }
 
 }

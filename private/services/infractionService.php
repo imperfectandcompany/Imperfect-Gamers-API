@@ -3,9 +3,12 @@ class InfractionService
 {
     protected $dbConnection;
 
-    public function __construct($dbConnection)
+    public function __construct($dbConnection, $secondaryDbConnection = null)
     {
         $this->dbConnection = $dbConnection;
+        if($secondaryDbConnection) {
+            $this->secondaryDbConnection = $secondaryDbConnection;
+        }
     }
 
     public function fetchAllInfractions($type = null, $page = 1, $perPage = 10)
@@ -306,77 +309,53 @@ class InfractionService
 
     public function searchInfractionsByQuery($query, $type = null, $page = 1, $perPage = 10)
     {
-        $perPage = $perPage ?? 10;
         $decodedQuery = urldecode($query);
         $queryParam = "%" . trim($decodedQuery) . "%";
-
-        // First, get the total count of infractions matching the query
-        $totalItems = $this->getTotalInfractionsCountByQuery($query, $type);
-        $totalPages = ceil($totalItems / $perPage);
-
-
-        // Check if the requested page exceeds the total pages
-        if ($page > $totalPages && $totalItems > 0) {
-            throw new RuntimeException('Requested page does not exist.');
-        }
-
+    $perPage = $perPage ?? 10;
         $offset = ($page - 1) * $perPage;
-
-        if ($type === null) {
-            $sql = "SELECT id, player_steamid, player_name, admin_name, admin_steamid, reason, duration, ends, created, 'BAN' AS type, status FROM sa_bans
-                    WHERE player_steamid LIKE ? OR player_name LIKE ? OR admin_steamid LIKE ? OR admin_name LIKE ?
-                    UNION ALL
-                    SELECT id, player_steamid, player_name, admin_name, admin_steamid, reason, duration, ends, created, type, status FROM sa_mutes
-                    WHERE player_steamid LIKE ? OR player_name LIKE ? OR admin_steamid LIKE ? OR admin_name LIKE ?
-                    LIMIT ? OFFSET ?";
-            $params = array_merge([$queryParam, $queryParam, $queryParam, $queryParam, $queryParam, $queryParam, $queryParam, $queryParam], [$perPage, $offset]);
-        } elseif ($type === 'comms') {
-            $sql = "SELECT id, player_steamid, player_name, admin_name, admin_steamid, reason, duration, ends, created, type, status FROM sa_mutes
-                    WHERE player_steamid LIKE ? OR player_name LIKE ? OR admin_steamid LIKE ? OR admin_name LIKE ?
-                    LIMIT ? OFFSET ?";
-            $params = array_merge([$queryParam, $queryParam, $queryParam, $queryParam], [$perPage, $offset]);
-        } elseif ($type === 'bans') {
-            $sql = "SELECT id, player_steamid, player_name, admin_name, admin_steamid, reason, duration, ends, created, 'BAN' AS type, status FROM sa_bans
-            WHERE player_steamid LIKE ? OR player_name LIKE ? OR admin_steamid LIKE ? OR admin_name LIKE ?
-            LIMIT ? OFFSET ?";
-            $params = array_merge([$queryParam, $queryParam, $queryParam, $queryParam], [$perPage, $offset]);
-        } else {
-            throw new InvalidArgumentException('Invalid infraction type provided.');
+    
+        // Step 1: Search PlayerRecords for matching PlayerName
+        $playerSql = "SELECT SteamID, PlayerName FROM PlayerRecords WHERE PlayerName LIKE ? LIMIT ?";
+        $playerResults = $this->secondaryDbConnection->query($playerSql, [$queryParam, $perPage]);
+        if (!$playerResults) {
+            throw new RuntimeException('Failed to fetch player records.');
         }
-
-        $results = $this->dbConnection->query($sql, $params);
-
-        // Collect Steam IDs for players and admins
-        $steamIDs = [];
-        foreach ($results as $infraction) {
-            $steamIDs[] = $infraction['player_steamid'];
-            // Assuming admin_steamid is also part of your data and you want their names too
-            $steamIDs[] = $infraction['admin_steamid'];
+    
+        // Extract SteamIDs from player results for infraction query
+        $steamIDs = array_column($playerResults, 'SteamID');
+    
+        // Step 2: Fetch Infractions for Matched SteamIDs
+        // Note: Modify this query to suit your actual requirements, including joins if needed
+        $infractionsSql = "SELECT * FROM sa_bans WHERE player_steamid IN (?) UNION ALL SELECT * FROM sa_mutes WHERE player_steamid IN (?)";
+        $infractionsParams = [$steamIDs, $steamIDs]; // Adjust based on your query builder or execution method
+        $infractionsResults = $this->dbConnection->query($infractionsSql, $infractionsParams);
+    
+        // Step 3: Merge Results
+        // This step involves processing $playerResults and $infractionsResults to combine them based on SteamID
+        // Implementation depends on your specific data structure and needs
+    
+        // Example of a simple merge (pseudo-code):
+        $mergedResults = [];
+        foreach ($playerResults as $player) {
+            $playerSteamID = $player['SteamID'];
+            $player['infractions'] = array_filter($infractionsResults, function ($infraction) use ($playerSteamID) {
+                return $infraction['player_steamid'] === $playerSteamID;
+            });
+            $mergedResults[] = $player;
         }
-
-        // Get player names without duplicates
-        $playerNames = $this->getPlayerNameBySteamID(array_unique($steamIDs));
-
-        // Append player names to results
-        foreach ($results as &$infraction) {
-            $infraction['current_player_name'] = $playerNames[$infraction['player_steamid']] ?? 'Unknown Player';
-            $infraction['current_admin_name'] = $playerNames[$infraction['admin_steamid']] ?? 'Unknown Admin';
-        }
-        unset($infraction); // Break the reference with the last element
-
-        if ($results === false) {
-            throw new RuntimeException('Failed to fetch infractions.');
-        }
-
+    
+        // Return the merged results with pagination data
         return [
-            'data' => $results,
-            'totalPageItems' => count($results),
-            'totalItems' => $totalItems,
-            'totalPages' => $totalPages,
+            'data' => $mergedResults,
+            'totalPageItems' => count($mergedResults),
+            // TotalItems and TotalPages would need a separate query to count total matching records for accurate pagination
+            'totalItems' => 0, // Placeholder, calculate properly
+            'totalPages' => 0, // Placeholder, calculate properly
             'perPage' => $perPage,
             'currentPage' => $page
         ];
     }
+    
 
 
     public function getTotalInfractionsCountByQuery($query, $type = null)

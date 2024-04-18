@@ -33,5 +33,27 @@ class DatabaseManager {
 
         return $this->connections[$name];
     }
+
+
+    public function getConnectionByDbName($name, $dbName) {
+        $uniqueName = $name . '_' . $dbName; // Create a unique name for the connection
+    
+        if (!isset($this->connections[$uniqueName])) {
+            if (!isset($this->connectionParams[$name])) {
+                throw new Exception("Connection parameters for '{$name}' not found.");
+            }
+            $params = $this->connectionParams[$name];
+            $params['db'] = $dbName; // Override the database name
+    
+            $this->connections[$uniqueName] = new DatabaseConnector(
+                $params['host'], $params['port'], $params['db'],
+                $params['user'], $params['pass'], $params['charset']
+            );
+        }
+    
+        return $this->connections[$uniqueName];
+    }
+    
+
 }
 ?>
