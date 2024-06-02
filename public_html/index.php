@@ -289,8 +289,15 @@ if ($result['status'] === 'error') {
 $router->add('/logout', 'UserController@logout', 'POST');
 $router->add('/user/onboarded', 'UserController@verifyOnboarding', 'GET');
 $router->addDocumentation('/user/onboarded', 'GET', 'Confirms whether the user completed onboarding or not.');
+
 $router->add('/user/verifySteam', 'UserController@checkSteamLink', 'POST');
 $router->addDocumentation('/user/verifySteam', 'POST', 'Verifies the logged in user has a steam account');
+
+$router->add('/user/linkSteam', 'UserController@linkSteamAccount', 'POST');
+$router->addDocumentation('/user/linkSteam', 'POST', 'Links the logged in user\'s Steam account by saving the Steam ID to their profile');
+
+$router->add('/user/unlinkSteam', 'UserController@unlinkSteamAccount', 'POST');
+$router->addDocumentation('/user/unlinkSteam', 'POST', 'Unlinks the logged in user\'s Steam account by updating the Steam ID(s) to null in their profile');
 
 $router->add('/auth/verifyToken', 'UserController@verifyToken', 'GET');
 $router->addDocumentation('/auth/verifyToken', 'GET', 'Returns true / success, since it passed through authenticated filter with token properly.');
