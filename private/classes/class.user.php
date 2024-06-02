@@ -68,6 +68,95 @@ class User
         }
     }
 
+    /**
+     * Links a Steam account ID to a user's profile.
+     *
+     * @param int $userId The user's ID.
+     * @param string $steam_id_64 The Steam account ID 64.
+     * @return bool Returns true if the account is successfully linked.
+     * @throws Exception If the Steam ID is invalid or the update fails.
+     */
+    public function linkSteamAccount($userId, $steam_id_64)
+    {
+        if (!$this->isValidSteamID($steam_id_64)) {
+            throw new Exception("Invalid Steam ID.");
+        }
+
+        // First, check if a Steam account is already linked
+        $currentSteam = $this->hasSteam($userId);
+        if ($currentSteam['hasSteam']) {
+            throw new Exception("A Steam account is already linked. Unlink the current account before linking a new one.");
+        }
+
+        $steam_id = $this->steamid64_to_steamid2($steam_id_64);
+
+        // Generate filter params using makeFilterParams function
+        $params = makeFilterParams([$steam_id, $steam_id_64, $userId]);
+        try {
+            // Call updateData method with generated filter params
+            $updateResult = $this->dbObject->updateData(
+                "profiles",
+                "steam_id = :steam_id, steam_id_64 = :steam_id_64",
+                "user_id = :userId",
+                $params
+            );
+            if ($updateResult) {
+                return true;
+            } else {
+                throw new Exception("Failed to link Steam account. Ensure common data integrity points and try again.");
+            }
+        } catch (Exception $e) {
+            // Consider checking the reason for failure: was it a database connection issue, or were no rows affected?
+            throw new PDOException('Failed to link Steam account: ' . $e->getMessage());
+        }
+    }
+
+
+    /**
+     * Unlinks a Steam account from a user's profile.
+     *
+     * @param int $userId The user's ID.
+     * @return bool Returns true if the account is successfully unlinked.
+     * @throws Exception If there is no Steam account linked or the unlink operation fails.
+     */
+    public function unlinkSteamAccount($userId)
+    {
+        // First, check if a Steam account is already linked
+        $currentSteam = $this->hasSteam($userId);
+        if (!$currentSteam['hasSteam']) {
+            throw new Exception("No Steam account is linked to this profile.");
+        }
+        $params = makeFilterParams([$userId]);
+
+        try {
+            // Set steam_id and steam_id_64 fields to NULL to unlink the Steam account
+            $updateResult = $this->dbObject->updateData(
+                "profiles",
+                "steam_id = NULL, steam_id_64 = NULL",
+                "user_id = :userId",
+                $params
+            );
+
+            if ($updateResult) {
+                return true;
+            } else {
+                throw new Exception("Failed to unlink Steam account.");
+            }
+        } catch (Exception $e) {
+            throw new Exception('Failed to unlink Steam account: ' . $e->getMessage());
+        }
+    }
+
+    private function isValidSteamID($steam_id)
+    {
+        return preg_match('/^7656119[0-9]{10}+$/', $steam_id);
+    }
+
+    private function steamid64_to_steamid2($steamid64)
+    {
+        $accountID = bcsub($steamid64, '76561197960265728');
+        return 'STEAM_1:' . bcmod($accountID, '2') . ':' . bcdiv($accountID, 2);
+    }
 
     /**
      * Checks if a username already exists in the database.
@@ -80,7 +169,7 @@ class User
      */
     public function doesUsernameExist($username)
     {
-        // Query to check if the user has a linked Steam account
+        // Query to check if the user has a username
 
         $result = $this->dbObject->query('SELECT username FROM profiles WHERE username = :username', [
             ':username' => $username
@@ -92,48 +181,78 @@ class User
 
 
 
-
-/**
- * Changes the username associated with a specific user, identified by their token.
- *
- * This method verifies the user's token, checks if the new username is already taken,
- * and updates the username if it is available. It sends appropriate HTTP responses
- * based on the outcome of these operations.
- *
- * @param string $token The authentication token of the user.
- * @param string $username The new username to set.
- */
-public function changeUsernameFromToken($token, $username)
-{
-    // Get the user ID from the token and verify if the token is valid
-    $uid = $GLOBALS['user_id'];
-    // $oldUsername = $GLOBALS['user_data']['username'];
-    if ($uid) {
-        // Check if the desired username is already in use
-        if (!self::doesUsernameExist($username)) {
-            // Update the username in the database
-            $this->dbObject->query('UPDATE users SET username = :username WHERE id = :userid', [
-                ':userid' => $uid,
-                ':username' => $username
-            ]);
-            // Send success response
-            return true;
-        } else {
-            // Send error response if the username is already taken
-            return false;
+    /**
+     * Updates the username based on the user ID.
+     *
+     * @param string $uid The user's ID.
+     * @param string $username The new username to set.
+     * @return bool Indicates success or failure.
+     */
+    public function changeUsernameFromUid($uid, $username)
+    {
+        // Check if the username is already taken
+        // Ensure that the query method properly checks for non-results as empty arrays or similar.
+        $existingUsername = $this->dbObject->query('SELECT username FROM profiles WHERE username = :username', [':username' => $username]);
+        if (!empty($existingUsername)) {
+            throw new Exception('This username is already taken!');
         }
-    } else {
-        return false;
+
+        // Generate filter params using makeFilterParams function
+        $params = makeFilterParams([$username, $uid]);
+        try {
+            // Call updateData method with generated filter params
+            $updateResult = $this->dbObject->updateData(
+                "profiles",
+                "username = :username",
+                "user_id = :uid",
+                $params
+            );
+            if ($updateResult) {
+                return true;
+            } else {
+                throw new Exception('Failed to update username. Please check if the user ID is correct and try again.');
+            }
+        } catch (Exception $e) {
+            // Consider checking the reason for failure: was it a database connection issue, or were no rows affected?
+            throw new PDOException('Failed to update username' . $e->getMessage());
+        }
     }
-}
 
+    /**
+     * Adds a new username based on the user ID.
+     *
+     * This method checks if the provided username is already in use, and if not, inserts it
+     * into the database associated with the specified user ID.
+     *
+     * @param string $uid The user's ID.
+     * @param string $username The new username to add.
+     * @return bool Indicates success or failure.
+     */
+    public function addUsernameFromUid($uid, $username)
+    {
+        // First, check if the username already exists
+        $existingUsername = $this->dbObject->query('SELECT username FROM profiles WHERE username = :username', [':username' => $username]);
+        if (!empty($existingUsername)) {
+            throw new Exception('This username is already taken!');
+        }
 
+        // If the username does not exist, proceed to insert the new username
+        $rows = 'user_id, username';
+        $values = '?, ?';
+        $params = makeFilterParams([$uid, $username]);
+        try {
+            $addResult = $this->dbObject->insertData('profiles', $rows, $values, $params);
 
-
-
-
-
-
+            if ($addResult) {
+                return true;
+            } else {
+                throw new Exception('Failed to update username. Please check if the user ID is correct and try again.');
+            }
+        } catch (Exception $e) {
+            // Consider checking the reason for failure: was it a database connection issue, or were no rows affected?
+            throw new PDOException('Failed to update username' . $e->getMessage());
+        }
+    }
 
     /**
      * Retrieves the permissions associated with a user based on their user ID.
@@ -201,7 +320,6 @@ public function changeUsernameFromToken($token, $username)
             $result = $this->dbObject->viewSingleData($table, $select, $whereClause, $filterParams)['result'];
             return $result ? $result['password'] : null;
         }
-
     }
 
     /**

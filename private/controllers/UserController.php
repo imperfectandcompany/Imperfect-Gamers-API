@@ -27,6 +27,7 @@ class UserController
             if (!isset($postBody->{$field}) || empty($postBody->{$field})) {
                 throwError("Error: " . ucfirst($field) . " field is required");
                 http_response_code(ERROR_BAD_REQUEST);
+                sendResponse('error', ['message' => ucfirst($field) . ' field is required'], 400);
                 exit;
             }
         }
@@ -267,6 +268,82 @@ class UserController
         }
     }
 
+    /**
+     * Links a Steam account to the user's profile.
+     * This method assumes the user is already authenticated and the Steam ID is included in the POST request.
+     * TODO: link steam error logging.
+     * $this->logger->log($userId, 'linkSteam_error', ['error_message' => $e->getMessage()]);
+     *
+     * @return void Outputs a JSON response.
+     */
+    public function linkSteamAccount()
+    {
+        if (!isset($GLOBALS['user_id'])) {
+            sendResponse('error', ['message' => 'User ID is not set.'], 400);
+            return;
+        }
+
+        // Assume user is authenticated and the necessary middleware has already run
+        $user_id = $GLOBALS['user_id'];
+
+        // Parse the request body
+        $postBody = json_decode(file_get_contents("php://input"));
+
+        $this->checkInputFields(['steamId64'], $postBody);
+
+
+        if (!$postBody->steamId64) {
+            sendResponse('error', ['message' => 'Steam ID missing.'], 400);
+            return;
+        }
+
+        // Extract the steamId from the request body
+        $steam_id_64 = $postBody->steamId64;
+
+        try {
+            // Instantiate the DatabaseConnector and User classes
+            $user = new User($this->dbConnection);
+
+            $updateResult = $user->linkSteamAccount($user_id, $steam_id_64);
+            if ($updateResult) {
+                sendResponse('success', ['message' => 'Steam account linked successfully'], 200);
+            } else {
+                sendResponse('error', ['message' => 'Failed to link Steam account'], 500);
+            }
+        } catch (Exception $e) {
+            sendResponse('error', ['message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * Handles the HTTP request to unlink a Steam account from the logged in user's profile.
+     *
+     * @return void Outputs a JSON response.
+     */
+    public function unlinkSteamAccount()
+    {
+        if (!isset($GLOBALS['user_id'])) {
+            sendResponse('error', ['message' => 'User is not logged in.'], 400);
+            return;
+        }
+
+        $userId = $GLOBALS['user_id']; // Assuming session is started and user ID is stored
+
+        try {
+            // Attempt to unlink the Steam account
+            $user = new User($this->dbConnection);
+
+            $unlinkResult = $user->unlinkSteamAccount($userId);
+            if ($unlinkResult) {
+                sendResponse('success', ['message' => 'Steam account unlinked successfully'], 200);
+            } else {
+                sendResponse('error', ['message' => 'Failed to unlink Steam account'], 500);
+            }
+        } catch (Exception $e) {
+            sendResponse('error', ['message' => $e->getMessage()], 400);
+        }
+    }
+
 
     /**
      * Checks if the current user has linked a Steam account based on a global variable.
@@ -362,127 +439,113 @@ class UserController
     }
 
 
-/**
- * Changes the username for the authenticated user.
- */
-public function changeUsername()
-{
-    // Extract the token and new username from the request body
-    $postBody = json_decode(file_get_contents("php://input"));
-    $token = $GLOBALS['token'];
+    /**
+     * Changes the username for the authenticated user.
+     */
+    public function changeUsername()
+    {
+        $userId = $GLOBALS['user_id'];
+        $currentUsername = $GLOBALS['user_data']['username'] ?? '';
+        $postBody = json_decode(file_get_contents("php://input"));
+        $newUsername = $postBody->username ?? '';
 
-    $newUsername = $postBody->username ?? '';
+        if (empty($newUsername)) {
+            sendResponse('error', ['message' => 'Username is required.'], 400);
+            return;
+        }
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $newUsername)) {
+            sendResponse('error', ['message' => 'Username can only contain letters, numbers, and underscores.'], 400);
+            return;
+        }
+        if (!empty($newUsername)) {
+            if ($newUsername === $currentUsername) {
+                sendResponse('error', ['message' => 'New username is the same as the current username.'], 400);
+                return;
+            }
+        }
 
-    $user = new User($this->dbConnection);
-    // Call the static method to change the username based on the token
-    $result = $user->changeUsernameFromToken($token, $newUsername);
+        if (strlen($newUsername) < 3) {
+            $this->logger->log($userId, 'username_too_short', ['username' => $newUsername]);
+            sendResponse('error', ['message' => 'Username is too short. Must be at least 3 characters.'], 400);
+            return;
+        }
 
-    // If the username was successfully updated
-    if ($result) {
-        sendResponse('success', ['message' => 'Username updated successfully'], 200);
-    } else {
-        sendResponse('error', ['message' => 'Failed to update username'], 500);
+        if (strlen($newUsername) > 20) {
+            $this->logger->log($userId, 'username_too_long', ['username' => $newUsername]);
+            sendResponse('error', ['message' => 'Username is too long. Must not exceed 20 characters.'], 400);
+            return;
+        }
+
+        if (!$userId) {
+            $this->logger->log(0, 'user_not_authenticated', ['attempted_username' => $newUsername]);
+            sendResponse('error', ['message' => 'Client not authenticated'], 401);
+            return;
+        }
+
+        $this->logger->log($userId, 'username_change_initiated', ['new' => $newUsername]);
+
+        $user = new User($this->dbConnection);
+
+        if (!empty($currentUsername) && $currentUsername !== $newUsername) {
+            try {
+                $usernameChanged = $user->changeUsernameFromUid($userId, $newUsername);
+                if ($usernameChanged) {
+                    $this->logger->log($userId, 'username_update_success', ['from' => $currentUsername, 'to' => $newUsername]);
+                    sendResponse('success', ['message' => 'Username updated successfully from ' . $currentUsername . ' to ' . $newUsername], 200);
+                } else {
+                    throw new Exception('Update operation failed, no rows affected.');
+                }
+            } catch (Exception $e) {
+                $this->logger->log($userId, 'username_update_failed', ['error' => $e->getMessage()]);
+                sendResponse('error', ['message' => $e->getMessage()], 400);
+            }
+        } elseif (empty($currentUsername)) {
+            try {
+                $usernameAdded = $user->addUsernameFromUid($userId, $newUsername);
+                if ($usernameAdded) {
+                    $this->logger->log($userId, 'username_add_success', ['username' => $newUsername]);
+                    sendResponse('success', ['message' => 'Username "' . $newUsername . '" added successfully'], 200);
+                } else {
+                    throw new Exception('Failed to add username despite no conflicts.');
+                }
+            } catch (Exception $e) {
+                $this->logger->log($userId, 'username_add_failed', ['error' => $e->getMessage()]);
+                sendResponse('error', ['message' => $e->getMessage()], 400);
+            }
+        } else {
+            $this->logger->log($userId, 'username_change_no_action', ['reason' => 'Username unchanged']);
+            sendResponse('error', ['message' => 'New username is the same as the current username.'], 400);
+        }
     }
-}
 
-/**
- * Checks if the specified username already exists.
- */
-public function checkUsernameExistence()
-{
-    // Extract the username from the request body
-    $postBody = json_decode(file_get_contents("php://input"));
-    
-    $username = $postBody->username ?? '';
 
-    // Query the database for the user with the given username
-    $user = new User($this->dbConnection);
-    $exists = $user->doesUsernameExist($username);
+    /**
+     * Checks if the specified username already exists.
+     */
+    public function checkUsernameExistence()
+    {
+        // Extract the username from the request body
+        $postBody = json_decode(file_get_contents("php://input"));
 
-    // Return the result
-    if ($exists) {
-        sendResponse('success', array('exists' => true), 200);
-    } else {
-        sendResponse('success', array('exists' => false), 200);
+        $username = $postBody->username ?? '';
+
+        // Query the database for the user with the given username
+        $user = new User($this->dbConnection);
+        $exists = $user->doesUsernameExist($username);
+
+        // Return the result
+        if ($exists) {
+            sendResponse('success', array('exists' => true), 200);
+        } else {
+            sendResponse('success', array('exists' => false), 200);
+        }
     }
-}
 
     public function verifyToken()
     {
         // Assuming the token is already validated before reaching this function
-            sendResponse('success', array('uid' => $GLOBALS['user_id']), 200);
+        sendResponse('success', array('uid' => $GLOBALS['user_id']), 200);
     }
-
-    public function attachSteamAccount()
-    {
-        $postBody = json_decode(file_get_contents("php://input"));
-        if (!$postBody->steam_id_64 || !User::isLoggedIn()) {
-            sendResponse('error', ['message' => 'Steam ID missing or user not logged in'], 400);
-            return;
-        }
-
-        if (!isValidSteamID($postBody->steam_id_64)) {
-            sendResponse('error', ['message' => 'Invalid Steam ID'], 400);
-            return;
-        }
-
-        $userId = $GLOBALS['user_id']; // Assuming session is started and user ID is stored
-        $steamId64 = $postBody->steam_id_64;
-        $steamId = steamid64_to_steamid2($steamId64);
-
-        $params = [
-            ':steamId' => $steamId,
-            ':steamId64' => $steamId64,
-            ':id' => $userId
-        ];
-        $updateResult = $this->dbConnection->updateData(
-            "profiles",
-            "steam_id = :steamId, steam_id_64 = :steamId64",
-            "user_id = :id",
-            $params
-        );
-
-        if ($updateResult) {
-            sendResponse('success', ['message' => 'Steam account attached successfully'], 200);
-        } else {
-            sendResponse('error', ['message' => 'Failed to attach Steam account'], 500);
-        }
-    }
-
-    public function removeSteamAccount()
-    {
-        $userId = $_SESSION['user_id']; // Assuming session is started and user ID is stored
-
-        $params = [
-            ':steamId' => null,
-            ':steamId64' => null,
-            ':id' => $userId
-        ];
-        $updateResult = $this->dbConnection->updateData(
-            "profiles",
-            "steam_id = :steamId, steam_id_64 = :steamId64",
-            "user_id = :id",
-            $params
-        );
-
-        if ($updateResult) {
-            sendResponse('success', ['message' => 'Steam account removed successfully'], 200);
-        } else {
-            sendResponse('error', ['message' => 'Failed to remove Steam account'], 500);
-        }
-    }
-
-
-
-
-
-
-
-
-
-
-
-
 
     public function logoutAll()
     {
@@ -520,31 +583,5 @@ public function checkUsernameExistence()
         exit;
     }
 
-
-
-    private function isValidSteamID($steam_id)
-    {
-        return preg_match('/^7656119[0-9]{10}+$/', $steam_id);
-    }
-
-    private function steamid64_to_steamid2($steamid64)
-    {
-        $accountID = bcsub($steamid64, '76561197960265728');
-        return 'STEAM_1:' . bcmod($accountID, '2') . ':' . bcdiv($accountID, 2);
-    }
-
-    private function sanitizeUrl($url)
-    {
-        // Remove all illegal characters from a url
-        $url = filter_var($url, FILTER_SANITIZE_URL);
-
-        // Validate the URL to ensure it's a valid URL
-        if (filter_var($url, FILTER_VALIDATE_URL) !== false) {
-            return $url;
-        } else {
-            // If the URL is not valid, redirect back to settings
-            return '/settings';
-        }
-    }
 }
 ?>
