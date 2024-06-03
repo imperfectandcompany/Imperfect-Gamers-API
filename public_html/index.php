@@ -309,6 +309,9 @@ $router->addDocumentation('/user/checkUsernameExistence', 'POST', 'Checks if the
 $router->add('/user/changeusername', 'UserController@changeUsername', 'POST');
 $router->addDocumentation('/user/changeusername', 'POST', 'Changes the username of the user.');
 
+$router->add('/user/fetchCheckoutDetails', 'UserController@fetchCheckoutDetails', 'GET');
+$router->addDocumentation('/user/fetchCheckoutDetails', 'GET', 'Fetches the basket, package, and checkout URL details for the logged-in user.');
+
 
 // set user ID and token in global variable
 $GLOBALS['user_id'] = $result['user_id'];

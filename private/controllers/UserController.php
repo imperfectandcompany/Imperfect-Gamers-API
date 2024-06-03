@@ -194,6 +194,42 @@ class UserController
         }
     }
 
+
+
+
+    public function fetchCheckoutDetails()
+    {
+        if (!isset($GLOBALS['user_id'])) {
+            sendResponse('error', ['message' => 'User is not logged in.'], 400);
+            return;
+        }
+    
+        $userId = $GLOBALS['user_id']; // Assuming session is started and user ID is stored
+    
+        // Query to fetch basket, package, and checkout details
+        $query = 'SELECT basket_id, package_id, checkout_url FROM profiles WHERE user_id = :user_id';
+        $params = array(':user_id' => $userId);
+        $results = $this->dbConnection->query($query, $params);
+        
+        if ($results) {
+            // Filter out null values
+            $filteredResults = array_filter($results[0], function($value) {
+                return !is_null($value);
+            });
+    
+            if (!empty($filteredResults)) {
+                sendResponse('success', ['data' => $filteredResults], 200);
+            } else {
+                sendResponse('success', ['message' => 'No relevant details found'], 200);
+            }
+        } else {
+            sendResponse('error', ['message' => 'Details not found'], 404);
+        }
+    }
+    
+
+
+
     public function logout()
     {
         $userId = $GLOBALS['user_id']; // Assuming user ID is set after successful authentication
