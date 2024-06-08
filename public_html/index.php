@@ -341,7 +341,7 @@ $router->addDocumentation('/premium/remove/:user_id', 'DELETE', 'Removes a user 
 $router->add('/premium/status/:user_id', 'PremiumController@checkPremiumStatus', 'GET');
 $router->addDocumentation('/premium/status/:user_id', 'GET', 'Checks if a user is a premium member.');
 
-$router->addDocumentation('/premium/status', 'GET', 'Checks if a user is a premium member.');
+$router->addDocumentation('/premium/status/:user_id', 'GET', 'Checks if a user is a premium member.');
 
 $router->add('/premium/all', 'PremiumController@listAllPremiumUsers', 'GET');
 $router->addDocumentation('/premium/all', 'GET', 'Retrieves a list of all premium users.');
