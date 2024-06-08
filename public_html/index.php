@@ -309,6 +309,42 @@ $router->addDocumentation('/user/checkUsernameExistence', 'POST', 'Checks if the
 $router->add('/user/changeusername', 'UserController@changeUsername', 'POST');
 $router->addDocumentation('/user/changeusername', 'POST', 'Changes the username of the user.');
 
+$router->add('/user/fetchCheckoutDetails', 'UserController@fetchCheckoutDetails', 'GET');
+$router->addDocumentation('/user/fetchCheckoutDetails', 'GET', 'Fetches the basket, package, and checkout URL details for the logged-in user.');
+
+$router->add('/user/updateCheckoutDetails', 'UserController@updateCheckoutDetails', 'POST');
+$router->addDocumentation('/user/updateCheckoutDetails', 'POST', 'Updates the basket, package, and checkout URL details for the logged-in user.');
+
+// Premium user management
+
+$router->add('/premium/update/user/:id/:premium_status', 'PremiumController@updatePremiumUser', 'PUT');
+$router->enforceParameters('/premium/update/user/:id/:premium_status', 'PUT', [
+    'steam_id' => 'body',
+    'username' => 'body',
+    'email' => 'body'
+]);
+$router->addDocumentation('/premium/update/user/:id/:premium_status', 'PUT', 'Updates the premium status of a user, ensuring user data consistency.');
+
+$router->add('/premium/create', 'PremiumController@createPremiumUser', 'POST');
+$router->enforceParameters('/premium/create', 'POST', [
+    'user_id' => 'body', 
+    'username' => 'body', 
+    'email' => 'body', 
+    'steam_id' => 'body', 
+    'premium_status' => 'body'
+]);
+$router->addDocumentation('/premium/create', 'POST', 'Adds a user to the premium list with additional user data validations.');
+
+$router->add('/premium/remove/:user_id', 'PremiumController@removePremiumUser', 'DELETE');
+$router->addDocumentation('/premium/remove/:user_id', 'DELETE', 'Removes a user from the premium list based on the user ID provided in the URL path.');
+
+$router->add('/premium/status/:user_id', 'PremiumController@checkPremiumStatus', 'GET');
+$router->addDocumentation('/premium/status/:user_id', 'GET', 'Checks if a user is a premium member.');
+
+$router->addDocumentation('/premium/status', 'GET', 'Checks if a user is a premium member.');
+
+$router->add('/premium/all', 'PremiumController@listAllPremiumUsers', 'GET');
+$router->addDocumentation('/premium/all', 'GET', 'Retrieves a list of all premium users.');
 
 // set user ID and token in global variable
 $GLOBALS['user_id'] = $result['user_id'];
