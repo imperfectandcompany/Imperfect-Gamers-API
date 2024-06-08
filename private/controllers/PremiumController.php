@@ -106,9 +106,6 @@ class PremiumController
         return $returnFlag;
     }
 
-
-
-
     public function createPremiumUser()
     {
         $postBody = json_decode(static::getInputStream(), true);
@@ -194,8 +191,9 @@ class PremiumController
             return;
         }
 
-        $userModel = new User($this->tertiaryConnection);
-        $isPremium = $userModel->checkPremiumStatus($userId);
+
+        $isPremium = $this->checkClassPremiumStatus($userId);
+        
 
         if ($isPremium !== null) {
             $this->logger->log($userId, 'check_premium_status', ['status' => $isPremium]);
@@ -206,6 +204,36 @@ class PremiumController
         }
     }
 
+    private function checkClassPremiumStatus($userId)
+    {
+        // Convert the $userId parameter to an integer if it's passed as a string
+        $userId = intval($userId);
+    
+        if (!$userId) {
+            $this->logger->log(0, 'invalid_user_id', ['userId' => $userId]);
+            return $this->sendResponse('error', ['message' => 'Invalid user ID provided'], 400);
+        }
+
+        // The 'is_premium' status is stored in the 'PlayerStats' table under 'IsVip' column
+        try {
+            $query = "SELECT IsVip FROM PlayerStats WHERE SteamID = :userId";
+            $params = [':userId' => $userId];
+            $result = $this->tertiaryConnection->query($query, $params);
+    
+            if (!empty($result) && isset($result[0]['IsVip'])) {
+                $isPremium = (bool) $result[0]['IsVip'];
+                $this->logger->log($userId, 'check_premium_status', ['status' => $isPremium]);
+                return $this->sendResponse('success', ['user_id' => $userId, 'is_premium' => $isPremium], 200);
+            } else {
+                $this->logger->log($userId, 'user_not_found', ['userId' => $userId]);
+                return $this->sendResponse('error', ['message' => 'User not found'], 404);
+            }
+        } catch (Exception $e) {
+            $this->logger->log($userId, 'database_error', ['error' => $e->getMessage()]);
+            return $this->sendResponse('error', ['message' => 'Database error: ' . $e->getMessage()], 500);
+        }
+    }
+    
     public function listAllPremiumUsers()
     {
         $userModel = new User($this->tertiaryConnection);
@@ -213,8 +241,7 @@ class PremiumController
         sendResponse('success', ['premium_users' => $premiumUsers], 200);
     }
 
-
-    public function updatePremiumUser(int $userId, bool $premiumStatus)
+    private function updatePremiumUser(int $userId, bool $premiumStatus)
     {
         $postBody = json_decode(static::getInputStream(), true);
 
@@ -250,6 +277,25 @@ class PremiumController
             $this->logger->log($userId, 'failed_update_premium_status', ['status' => $premiumStatus]); // Log failed update attempt
             sendResponse('error', ['message' => 'Failed to update premium status'], 500);
             return;
+        }
+    }
+
+
+    private function setPremiumStatusSharpTimer($steamId, $isVip)
+    {
+        $vipStatus = $isVip ? 1 : 0;
+
+        $updateQuery = "UPDATE PlayerStats SET IsVip = :vipStatus WHERE SteamID = :steamId";
+        $updateParams = [
+            ':vipStatus' => $vipStatus,
+            ':steamId' => $steamId
+        ];
+
+        $updateResult = $this->tertiaryConnection->query($updateQuery, $updateParams);
+        if ($updateResult) {
+            return ['success' => true, 'message' => 'VIP status successfully updated.'];
+        } else {
+            return ['success' => false, 'message' => 'Failed to update VIP status. Please check the database connection and data integrity.'];
         }
     }
 
@@ -292,7 +338,7 @@ class PremiumController
      * @param string $username The username to check for existence.
      * @return bool True if the username exists, false otherwise.
      */
-    public function doesUsernameExist($username)
+    private function doesUsernameExist($username)
     {
         // Query to check if the user has a username
 
@@ -384,7 +430,7 @@ class PremiumController
      * @param string $steamId The Steam ID to check for.
      * @return string|null Returns the flags associated with the premium membership if found, or null if not found.
      */
-    private function gePremiumFlags($steamId)
+    private function gePremiumFlagsSimpleAdmin($steamId)
     {
         // Prepare the SQL query to retrieve the flags for a given Steam ID from the sa_admins table
         $query = "SELECT flags FROM sa_admins WHERE player_steamid = :steamId";
@@ -404,7 +450,7 @@ class PremiumController
 
     /**
      * Checks if a user exists in PlayerStats and sa_admins tables based on their Steam ID.
-     *
+     * CHECKS BOTH SHARPTIMER AND SIMPLEADMIN
      * @param string $steamId The Steam ID to check.
      * @return array Returns a message and data depending on the user's existence in the tables.
      */
@@ -433,58 +479,88 @@ class PremiumController
         }
     }
 
-/**
- * Inserts or updates a user in the sa_admins table based on their existence.
- *
- * @param string $steamId The Steam ID of the user to insert or update.
- * @param string $username The username of the user.
- * @return array Returns a message indicating the outcome of the operation.
- */
-public function upsertPremium($steamId, $username)
-{
-    // Check if the user already exists in sa_admins
-    $checkQuery = "SELECT 1 FROM sa_admins WHERE player_steamid = :steamId";
-    $checkParams = [':steamId' => $steamId];
-    $checkResult = $this->dbObject->query($checkQuery, $checkParams);
+    /**
+     * Inserts or updates a user in the sa_admins table based on their existence.
+     *
+     * @param string $steamId The Steam ID of the user to insert or update.
+     * @param string $username The username of the user.
+     * @return array Returns a message indicating the outcome of the operation.
+     */
+    private function upsertPremium($steamId, $username)
+    {
+        // Check if the user already exists in sa_admins
+        $checkQuery = "SELECT 1 FROM sa_admins WHERE player_steamid = :steamId";
+        $checkParams = [':steamId' => $steamId];
+        $checkResult = $this->dbObject->query($checkQuery, $checkParams);
 
-    // Prepare the common parameters
-    $flags = '#css/premium';
-    $immunity = 10;
+        // Prepare the common parameters
+        $flags = '#css/premium';
+        $immunity = 10;
 
-    if (!empty($checkResult)) {
-        // Update the existing Premium record
-        $updateQuery = "UPDATE sa_admins SET player_name = :username, flags = :flags, immunity = :immunity WHERE player_steamid = :steamId";
-        $updateParams = [
-            ':steamId' => $steamId,
-            ':username' => $username,
-            ':flags' => $flags,
-            ':immunity' => $immunity
-        ];
+        if (!empty($checkResult)) {
+            // Update the existing Premium record
+            $updateQuery = "UPDATE sa_admins SET player_name = :username, flags = :flags, immunity = :immunity WHERE player_steamid = :steamId";
+            $updateParams = [
+                ':steamId' => $steamId,
+                ':username' => $username,
+                ':flags' => $flags,
+                ':immunity' => $immunity
+            ];
 
-        $updateResult = $this->secondaryConnection->query($updateQuery, $updateParams);
-        if ($updateResult) {
-            return ['success' => true, 'message' => 'User successfully updated as an Premium.'];
+            $updateResult = $this->secondaryConnection->query($updateQuery, $updateParams);
+            if ($updateResult) {
+                return ['success' => true, 'message' => 'User successfully updated as an Premium.'];
+            } else {
+                return ['success' => false, 'message' => 'Failed to update user as an Premium. Please check the database connection and data integrity.'];
+            }
         } else {
-            return ['success' => false, 'message' => 'Failed to update user as an Premium. Please check the database connection and data integrity.'];
-        }
-    } else {
-        // Insert the new Premium record
-        $insertQuery = "INSERT INTO sa_admins (player_steamid, player_name, flags, immunity) VALUES (:steamId, :username, :flags, :immunity)";
-        $insertParams = [
-            ':steamId' => $steamId,
-            ':username' => $username,
-            ':flags' => $flags,
-            ':immunity' => $immunity
-        ];
+            // Insert the new Premium record
+            $insertQuery = "INSERT INTO sa_admins (player_steamid, player_name, flags, immunity) VALUES (:steamId, :username, :flags, :immunity)";
+            $insertParams = [
+                ':steamId' => $steamId,
+                ':username' => $username,
+                ':flags' => $flags,
+                ':immunity' => $immunity
+            ];
 
-        $insertResult = $this->secondaryConnection->query($insertQuery, $insertParams);
-        if ($insertResult) {
-            return ['success' => true, 'message' => 'User successfully inserted as an Premium.'];
-        } else {
-            return ['success' => false, 'message' => 'Failed to insert user as an Premium. Please check the database connection and data integrity.'];
+            $insertResult = $this->secondaryConnection->query($insertQuery, $insertParams);
+            if ($insertResult) {
+                return ['success' => true, 'message' => 'User successfully inserted as an Premium.'];
+            } else {
+                return ['success' => false, 'message' => 'Failed to insert user as an Premium. Please check the database connection and data integrity.'];
+            }
         }
     }
-}
+
+    /**
+     * Removes a user from the sa_admins table based on their Steam ID.
+     *
+     * @param string $steamId The Steam ID of the user to remove.
+     * @return array Returns a message indicating the outcome of the operation.
+     */
+    public function removePremiumSimpleAdmin($steamId)
+    {
+        // Check if the user exists in sa_admins
+        $checkQuery = "SELECT 1 FROM sa_admins WHERE player_steamid = :steamId";
+        $checkParams = [':steamId' => $steamId];
+        $checkResult = $this->secondaryConnection->query($checkQuery, $checkParams);
+
+        if (empty($checkResult)) {
+            return ['success' => false, 'message' => 'User does not exist as an admin.'];
+        }
+
+        // Remove the user from sa_admins
+        $deleteQuery = "DELETE FROM sa_admins WHERE player_steamid = :steamId";
+        $deleteParams = [':steamId' => $steamId];
+
+        $deleteResult = $this->secondaryConnection->query($deleteQuery, $deleteParams);
+        if ($deleteResult) {
+            return ['success' => true, 'message' => 'User successfully removed from admin.'];
+        } else {
+            return ['success' => false, 'message' => 'Failed to remove user from admin. Please check the database connection and data integrity.'];
+        }
+    }
+
 
 
 }

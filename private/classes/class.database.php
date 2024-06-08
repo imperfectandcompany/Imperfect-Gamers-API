@@ -35,7 +35,7 @@
  * additional features such as connection pooling, more robust error handling, configuration file management, etc.
  * 
  * 
- * @package Postogon
+ * @package Imperfect Gamers
  */
 class DatabaseConnector
 {

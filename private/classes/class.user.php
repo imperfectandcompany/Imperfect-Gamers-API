@@ -111,6 +111,27 @@ class User
         }
     }
 
+    public function updateCheckoutDetails($userId, $basketId, $packageId, $checkoutUrl)
+    {
+        $params = makeFilterParams([$basketId, $packageId, $checkoutUrl, $userId]);
+        try {
+            $updateResult = $this->dbObject->updateData(
+                "profiles",
+                "basket_id = :basket_id, package_id = :package_id, checkout_url = :checkout_url",
+                "user_id = :user_id",
+                $params
+            );
+
+            if ($updateResult) {
+                return true;
+            } else {
+                throw new Exception("Failed to update profile with initialized store data. Ensure common data integrity points and try again.");
+            }
+        } catch (Exception $e) {
+            // Consider checking the reason for failure: was it a database connection issue, or were no rows affected?
+            throw new PDOException('Failed to update profile: ' . $e->getMessage());
+        }
+    }
 
     /**
      * Unlinks a Steam account from a user's profile.

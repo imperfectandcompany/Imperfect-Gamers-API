@@ -9,6 +9,8 @@ class InfractionController
     public function __construct($dbManager, $logger)
     {
         $this->dbConnection = $dbManager->getConnection('gameserver');
+        
+        // Connect specifically to the 'sharptimer' database for premium user management
         $this->secondaryConnection = $dbManager->getConnectionByDbName('gameserver', 'sharptimer');
 
         $this->logger = $logger;

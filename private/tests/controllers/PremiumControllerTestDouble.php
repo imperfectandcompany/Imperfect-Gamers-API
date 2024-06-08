@@ -1,4 +1,7 @@
 <?php
+
+// tests/controllers/PremiumControllerTestDouble.php:
+
 include_once($GLOBALS['config']['private_folder'] . '/controllers/PremiumController.php');
 
 class PremiumControllerTestDouble extends PremiumController
@@ -21,4 +24,3 @@ class PremiumControllerTestDouble extends PremiumController
     }
 
 }
-?>

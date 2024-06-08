@@ -1,4 +1,7 @@
 <?php
+
+// classes/class.testRunner.php
+
 class TestRunner
 {
     private $controllers;
@@ -26,6 +29,8 @@ class TestRunner
     public function runTests($categories)
     {
         $totalCategories = count($categories);
+
+        // TODO: Investigate unused variable (can't recall and everything seems fine...)
         $totalTests = array_sum(array_map('count', $categories)); // Get the total number of tests
         $totalTestsRun = 0;
     
@@ -87,10 +92,16 @@ class TestRunner
         echo "</div>";
     
         $this->cleanup();
-    
+
+        
+        // Force exit just in case we attempted to access specific endpoint with unstable code after.
+        // #TODO Kill on first erorr. unless explicitly configured to show overall metrics. Overall metrics would be displayed if all passed (warnings ignored).
+        // This is so we don't run subsequent tests off bad code.
+        // Standard practice would be to run the tests in /tests/tests.php in order of required dependencies.
         if ($this->failed) {
             die("Stopping due to failed tests.");
         }
+        
     }
     private function cleanup()
     {

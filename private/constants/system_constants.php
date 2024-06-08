@@ -27,11 +27,6 @@ define('TIMEZONE', "America/New_York");
 //When we're looking up a user's profile, we use this query to easily not accidentally call their password when we don't need it.
 define('PROFILE_LOOKUP', "id,username,email,admin,verified,createdAt,avatar,display_name");
 
-
-// Test mode (for API testing, not for production use)
-
-define('TESTMODE', true); // Converted 0 to false for clarity
-
 // General settings for user interaction
 define('MAX_USERNAME_LENGTH', 32);
 define('MAX_PASSWORD_LENGTH', 32);
@@ -103,22 +98,51 @@ define('SteamAPIKey', '52A66B13219F645834149F1A1180770A');
 // It is not intended to be used in production
 // Dev mode is different from development environment in that it is a toggleable feature
 // Dev mode does not switch the environment, it simply enables or disables certain features
+
 // Development and Test Modes
 // Development mode (for debugging and development, not for production use)
-define('DEVMODE', true); // Converted 1 to true for clarity
-###############################################
-// Dev mode must be enabled to use test mode //
-###############################################
-// Test mode is a tool for testing the API
-// Test mode is not intended to be used in production
-// Test mode is different from development environment in that it is a toggleable feature
-// Test mode does not switch the environment, it simply enables or disables certain features
-// Test mode accesses a different database than the production and development database
-// Test mode is used to test the API in a production-like environment
-define('testmode', true);
-// Keep in mind when dev mode is enabled, loggedIn injects a token into the request
-// Meaning it spoofs your login for you, so you don't have to login to test the API
-define('loggedIn', true);
+
+// List of allowed IP addresses for development and test modes
+$allowedIPs = $debug_IPs; // Add your IP address here
+
+$config = [
+    'DEVMODE' => true, // Enable dev mode
+    'loggedIn' => true, // Switch between loggedin and loggedout 
+    'TESTMODE' => true // requires DEVMODE to be true
+];
+
+if ($_SERVER['HTTP_HOST'] === 'api.imperfectgamers.org' && in_array($_SERVER['REMOTE_ADDR'], $allowedIPs)) {
+    // Check if the referrer is not your main site
+    if (!isset($_SERVER['HTTP_REFERER']) || parse_url($_SERVER['HTTP_REFERER'], PHP_URL_HOST) !== 'imperfectgamers.org') {
+        // Development and Test Modes
+        // Development mode (for debugging and development, not for production use)
+        define('DEVMODE', $config['DEVMODE']);
+        // Keep in mind when dev mode is enabled, loggedIn injects a token into the request
+        // Meaning it spoofs your login for you, so you don't have to login to test the API      
+        define('loggedIn', $config['loggedIn']); // Spoofs your login for testing
+        ###############################################
+        // Dev mode must be enabled to use test mode //
+        ###############################################
+        // Test mode is a tool for testing the API
+        // Test mode is not intended to be used in production
+        // Test mode is different from development environment in that it is a toggleable feature
+        // Test mode does not switch the environment, it simply enables or disables certain features
+        // Test mode accesses a different database than the production and development database
+        // Test mode is used to test the API in a production-like environment            
+        define('TESTMODE', $config['TESTMODE']); // Enables test-specific features (requires DEVMODE)
+    } else {
+        define('DEVMODE', false);
+        define('loggedIn', false);
+        define('TESTMODE', false);
+    }
+} else {
+    // Disable all special modes if not accessed from allowed IP
+    define('DEVMODE', false);
+    define('loggedIn', false);
+    define('TESTMODE', false);
+}
+
+
 // TODO Admin Login
 // Create a new instance for admin routes from router class
 // Admin logged is entirely separate login process from user login

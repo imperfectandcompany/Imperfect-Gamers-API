@@ -132,6 +132,32 @@ $result = authenticate_user($token, $dbManager->getConnection());
 // get an instance of the Devmode class
 $GLOBALS['config']['devmode'] = DEVMODE;
 
+$isLoggedIn = (DEVMODE === true && loggedIn === true) ? true : ($result['status'] === 'error' ? false : true);
+
+$GLOBALS['token'] = $result['token'];
+
+if ($isLoggedIn) {
+    // set user ID and token in global variable
+    $GLOBALS['user_id'] = $result['user_id'];
+    $GLOBALS['logged_in'] = true;
+$token = $result['token'];
+    // at this point we have our user_id and can set global data
+    include_once (PRIVATE_FOLDER . '/data/user.php');
+}
+
+// Check if we're in devmode
+if (DEVMODE == 1) {
+    include (PRIVATE_FOLDER . '/frontend/devmode.php');
+    if (DEVMODE && $GLOBALS['config']['testmode']) {
+        // Run testing script
+        
+        include_once (PRIVATE_FOLDER . '/tests/tests.php');
+
+
+        $GLOBALS['config']['testmode'] = 0; //This disables testing
+
+    }
+}
 
 
 // // Create a cache instance
@@ -160,8 +186,6 @@ $router = new Router();
 // create a new instance for unauthenticated routes from router class
 $notAuthenticatedRouter = new Router();
 
-// If dev mode is enabled and loggedIn is true, set $isLoggedIn for this page to true otherwise check if the token / login result status is not error
-DEVMODE === true && loggedIn === true ? $isLoggedIn = true : $isLoggedIn = $result['status'] === 'error' ? false : true;
 $echo = $isLoggedIn ? "Logged in" : "Not logged in";
 // Determine which router to add routes to
 $mutualRoute = $isLoggedIn ? $router : $notAuthenticatedRouter;
@@ -261,7 +285,7 @@ if (DEVMODE == 1) {
 $routes = $notAuthenticatedRouter->getRoutes();
 
 // handle case where user is not authenticated
-if ($result['status'] === 'error') {
+if (!$isLoggedIn) {
 
     // add the non-authenticated routes to the router
     $notAuthenticatedRouter->add('/register', 'UserController@register', 'POST');
@@ -280,9 +304,7 @@ if ($result['status'] === 'error') {
 
     // dispatch the request to the appropriate controller
     $notAuthenticatedRouter->dispatch($GLOBALS['url_loc'], $dbManager, 1);
-    if (DEVMODE == 1) {
-        include (PRIVATE_FOLDER . '/frontend/devmode.php');
-    }
+
     exit();
 }
 
@@ -346,15 +368,6 @@ $router->addDocumentation('/premium/status/:user_id', 'GET', 'Checks if a user i
 $router->add('/premium/all', 'PremiumController@listAllPremiumUsers', 'GET');
 $router->addDocumentation('/premium/all', 'GET', 'Retrieves a list of all premium users.');
 
-// set user ID and token in global variable
-$GLOBALS['user_id'] = $result['user_id'];
-
-$GLOBALS['token'] = $result['token'];
-$token = $result['token'];
-$GLOBALS['logged_in'] = true;
-
-// at this point we have our user_id and can set global data
-include_once (PRIVATE_FOLDER . '/data/user.php');
 
 // if the user is authenticated, use that instance of the Router class and dispatch the incoming request
 
@@ -362,15 +375,7 @@ include_once (PRIVATE_FOLDER . '/data/user.php');
 $router->dispatch($GLOBALS['url_loc'], $dbManager, DEVMODE);
 
 
-// Check if we're in devmode
-if (DEVMODE == 1) {
-    include (PRIVATE_FOLDER . '/frontend/devmode.php');
-    if (DEVMODE && $GLOBALS['config']['testmode']) {
-        // Run testing script
-        include_once (PRIVATE_FOLDER . '/tests/tests.php');
-        $GLOBALS['config']['testmode'] = 0; //This disables testing
-    }
-}
+
 
 
 // unset token to prevent accidental use
