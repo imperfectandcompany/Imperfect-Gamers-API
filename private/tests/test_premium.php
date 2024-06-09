@@ -2,20 +2,24 @@
 
 // tests/test_premium.php
 
-// test_premium.php
-
 function testCanCheckPremiumStatus($premiumController) {
-    // Assume you have a user with ID 1 who is a premium user in your test database
-    $userId = 1;  // Test user ID
+    $userId = 116;  // Example test user ID
 
-    // Simulate calling the method
+    // Using the test double with the overridden sendResponse
     $result = $premiumController->checkPremiumStatus($userId);
 
-    // Use customAssert to evaluate test conditions
+    // Assume your method returns an array with status, data, and httpCode
+    $expectedResult = ['status' => 'success', 'data' => ['user_id' => $userId, 'is_premium' => true], 'httpCode' => 200];
+
+    global $currentTest;
+
+    // throwWarning("<strong>Result:</strong><br><br> " . json_encode($result));
+    
+    // Check if result matches expected result
     customAssert(
-        $result['status'] === 'success' && $result['is_premium'] === true,
-        "Test Failed: Premium status incorrectly identified or method failed."
+        $result === $expectedResult,
+        "Expected premium status check to pass but it failed"
     );
 
-    echo "Test Passed: Premium status correctly identified.\n";
+    echo "Test Passed: Correct premium status returned.\n";
 }

@@ -40,12 +40,20 @@
 class DatabaseConnector
 {
     private $dbConnection = null;
+    private $serverDetails = [];
 
-    public function __construct($host, $port, $db, $user, $pass, $charset = 'utf8mb4') {
+    public function __construct($host, $port, $db, $user, $pass, $charset = 'utf8mb4')
+    {
+        $this->serverDetails = [
+            'host' => $host,
+            'port' => $port,
+            'database' => $db
+        ];
         $this->addConnection($host, $port, $db, $user, $pass, $charset);
     }
 
-    public function addConnection($host, $port, $db, $user, $pass, $charset = 'utf8mb4') {
+    public function addConnection($host, $port, $db, $user, $pass, $charset = 'utf8mb4')
+    {
         $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
         $options = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -147,14 +155,11 @@ class DatabaseConnector
 
         } catch (Exception $e) {
             // Log the executed query and parameters (for debugging)
-            throwWarning('Executed query: ' . $query);
-            throwWarning('Parameters: ' . print_r($params, true));
-            $GLOBALS['messages']['errors'][] = '<b>Error: </b>' . $e->getMessage();
+            throwWarning($this->handleDatabaseException($e, $query, $params));
             return false;
         } catch (\PDOException $e) {
             // Log the executed query and parameters (for debugging)
-            throwWarning('Executed query: ' . $query);
-            throwWarning('Parameters: ' . print_r($params, true));
+            throwWarning($this->handleDatabaseException($e, $query, $params));
             if ($e->getCode() === '23000') {
                 $GLOBALS['messages']['errors'][] = '<b>UNIQUE CONSTRAINT: </b>' . $e->getMessage();
             } else {
@@ -163,8 +168,7 @@ class DatabaseConnector
             return false;
         } catch (PDOException $e) {
             // Log the executed query and parameters (for debugging)
-            throwWarning('Executed query: ' . $query);
-            throwWarning('Parameters: ' . print_r($params, true));
+            throwWarning($this->handleDatabaseException($e, $query, $params));
             if ($e->getCode() === '23000') {
                 $GLOBALS['messages']['errors'][] = '<b>UNIQUE CONSTRAINT: </b>' . $e->getMessage();
             } else {
@@ -173,6 +177,189 @@ class DatabaseConnector
             return false;
         }
     }
+
+    /**
+     * Handles database exceptions, enhancing error reporting with detailed information.
+     *
+     * @param Exception $e The exception object containing error details.
+     * @param string $query The SQL query that triggered the exception.
+     * @param array $params The parameters used in the SQL query.
+     *
+     * @return string A detailed error message with possible causes and solutions.
+     */
+    function handleDatabaseException(Exception $e, string $query, array $params)
+    {
+        $serverDetails = $this->serverDetails;
+
+        $errorCode = $e->getCode();
+        $errorMessage = $e->getMessage();
+        $traceDetails = $e->getTrace();
+
+        $summary = [];
+        foreach ($traceDetails as $index => $frame) {
+            $func = isset($frame['function']) ? $frame['function'] . '()' : 'N/A';
+            $file = isset($frame['file']) ? basename($frame['file']) : 'N/A';
+            $line = isset($frame['line']) ? $frame['line'] : 'N/A';
+            $summary[] = "Step " . ($index + 1) . ": Called $func in $file on line $line";
+        }
+
+        $specifics = "<br><strong>Error message:</strong><br>$errorMessage<br>";
+        $specifics .= "<br><strong>Call Stack:</strong><br>";
+
+        foreach ($summary as $step) {
+            $specifics .= $step . "<br>";
+        }
+
+        // Attempt to extract database name from error message
+        preg_match("/'([\w_]+)\./", $errorMessage, $matches);
+        $databaseName = $matches[1] ?? 'unknown';
+
+        // Extract the table name and constraint name from the error message
+        preg_match('/`([^`]+)`\.`([^`]+)`/', $errorMessage, $matches);
+        $tableName = $this->extractTableNameFromError($errorMessage);
+        $constraintName = $matches[2] ?? 'Unknown';
+
+        // Check if the exception is a foreign key constraint violation
+        if ($errorCode === '23000') {
+
+            // Provide a clear explanation of the issue
+            $explanation = "<strong>A foreign key constraint violation occurred</strong> while executing the SQL query in the '<strong>$databaseName</strong>' database:<br><br>";
+            $explanation .= "<pre>$query</pre><br>With the following parameters:<br><pre>";
+            $explanation .= print_r($params, true) . "</pre><br>";
+            $explanation .= "This error typically occurs when you're attempting to insert, update, or delete a row that has a foreign key reference to another table, but the referenced row doesn't exist or has been deleted.<br><br>";
+
+            // Offer a step-by-step breakdown for debugging
+            $breakdown = "<strong>Step-by-Step Breakdown:</strong><br>";
+            $breakdown .= "1. The query attempted to perform an operation on the '<strong>$tableName</strong>' table.<br>";
+            $breakdown .= "2. The operation violated the '<strong>$constraintName</strong>' foreign key constraint.<br>";
+            $breakdown .= "3. This constraint ensures that the values in the foreign key column(s) correspond to existing values in the referenced table.<br>";
+            $breakdown .= "4. The query failed because the referenced row(s) were not found or had been deleted.<br><br>";
+
+            // Suggest possible causes and solutions
+            $suggestions = "<strong>Possible Causes and Solutions:</strong><br>";
+            $suggestions .= "- The referenced row(s) in the related table may have been deleted or never existed.<br>";
+            $suggestions .= "- You may have tried to insert or update a row with an invalid foreign key value.<br>";
+            $suggestions .= "- There could be a bug in your application logic that is causing incorrect foreign key values to be used.<br><br>";
+            $suggestions .= "To resolve this issue, you should:<br>";
+            $suggestions .= "1. Verify that the foreign key value(s) being used are valid and correspond to existing rows in the referenced table.<br>";
+            $suggestions .= "2. Check your application logic to ensure that foreign key values are being handled correctly.<br>";
+            $suggestions .= "3. Consider modifying your database schema or application logic to handle foreign key violations more gracefully (e.g., using cascade delete or updating related rows).<br>";
+
+            // Display the detailed explanation
+            return ($explanation . $specifics . $breakdown . $suggestions);
+        } elseif ($errorCode === '42S02') {
+            $schemaCheck = $this->checkDatabaseSchema($databaseName, $tableName);
+
+            // Handle "table or view not found" error
+            $explanation = "<strong>A 'table or view not found' error occurred</strong> while executing the SQL query in the '<b>$databaseName</b>' database:<br><br>";
+            $explanation .= "<pre>$query</pre><br>With the following parameters:<br><pre>";
+            $explanation .= print_r($params, true) . "</pre><br>";
+            $explanation .= "This error occurs when the query attempts to access a table or view that does not exist in the database.<br>";
+
+            $explanation .= "<br><strong>Server:</strong><br> {$serverDetails['host']} on port {$serverDetails['port']} <br><br><strong>Database:</strong><br> {$serverDetails['database']}<br>";
+            $explanation .= "<br>" .$schemaCheck; // Include schema validation results
+
+
+            $breakdown = "<br><strong>Debugging Steps:</strong><br>";
+            $breakdown .= "1. Verify that the table or view name in the query is spelled correctly.<br>";
+            $breakdown .= "2. Ensure that the correct database is being queried and that the table or view exists in that database.<br>";
+            $breakdown .= "3. Check for case sensitivity in table or view names if the database system is case-sensitive.<br>";
+
+            $suggestions = "<br><strong>Possible Causes and Solutions:</strong><br>";
+            $suggestions .= "- The table or view name may have been misspelled.<br>";
+            $suggestions .= "- The table or view may have been deleted or not created.<br>";
+            $suggestions .= "- There might be a misconfiguration in the database connection settings that is pointing to the wrong database.";
+
+            return ($explanation . $specifics . $breakdown . $suggestions);
+        } else {
+            // Handle other types of exceptions
+            return ("An unexpected database exception occurred: " . $errorMessage);
+        }
+    }
+
+    function extractTableNameFromError($errorMessage) {
+        // Pattern to extract table name, handling different quoting and schema inclusion
+        if (preg_match("/'([a-zA-Z0-9_\.]+)'/", $errorMessage, $matches) ||  // Handles single quotes and schema.table format
+            preg_match("/`([a-zA-Z0-9_\.]+)`/", $errorMessage, $matches)) {  // Handles backticks and schema.table format
+            // Extract table name which might include schema name
+            $fullTableName = explode('.', $matches[1]);
+            return end($fullTableName);  // Returns the table name part if schema.table, else just table
+        }
+        return 'Unknown';  // Return 'Unknown' if not found
+    }
+
+    function checkDatabaseSchema($databaseName, $tableName)
+{
+    $connection = $this->dbConnection;  // Use your established database connection
+
+    try {
+        // Ensure the table name is a valid SQL identifier to prevent SQL injection
+        if (!preg_match('/^[a-zA-Z0-9_$]+$/', $tableName)) {
+            throw new InvalidArgumentException("Invalid table name");
+        }
+
+        // Prepare the SQL statement to check for the table
+        $sql = "SHOW TABLES LIKE '$tableName'";  // Direct inclusion of the table name, use with caution
+        $stmt = $connection->query($sql);
+        $result = $stmt->fetchAll();
+
+        if (empty($result)) {
+            // Table does not exist
+            return "<strong>No such table:</strong><br> The table '$tableName' does not exist in the database '$databaseName'.<br>";
+        } else {
+            // Table exists
+            return "<strong>Table found:</strong><br> The table '$tableName' exists in the database '$databaseName'.<br>";
+        }
+    } catch (PDOException $e) {
+        // Handle potential errors in a real-world scenario appropriately
+        return "<strong>Database error:</strong> " . $e->getMessage() . "<br>";
+    } catch (InvalidArgumentException $e) {
+        // Handle invalid table names
+        return "<strong>Input error:</strong> " . $e->getMessage() . "<br>";
+    }
+}
+
+
+    public function handleException($exception, $query, $params)
+    {
+        // Extract the most important parts of the query to display
+        $queryPreview = substr($query, 0, 100) . '...';  // Display only the first 100 characters
+
+        // Create a structured, concise error message
+        $errorMessage = sprintf(
+            "Error [%s]: %s in %s on line %d. Query: %s",
+            $exception->getCode(),
+            $exception->getMessage(),
+            $exception->getFile(),
+            $exception->getLine(),
+            $queryPreview
+        );
+
+        // Log the full error details in a single, structured JSON line for detailed analysis
+        $errorDetails = [
+            'message' => $exception->getMessage(),
+            'code' => $exception->getCode(),
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine(),
+            'query' => $query,
+            'params' => $params,
+            'stackTrace' => $exception->getTraceAsString()
+        ];
+        error_log(json_encode($errorDetails));
+
+        // Print or return a clean, simple error message for immediate viewing
+        echo $errorMessage;
+        // Optionally store or display this message in a user-friendly environment
+    }
+
+
+
+    public function logError($errorDetails)
+    {
+        // Implement logging mechanism here (e.g., write to a log file or send to a logging service)
+        error_log(json_encode($errorDetails));
+    }
+
 
 
     /**

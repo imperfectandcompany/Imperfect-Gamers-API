@@ -15,7 +15,7 @@ class DevController {
     public function getDevMode() {
         $devMode = new Dev($this->dbConnection);
         $devModeStatus = $devMode->getDevModeStatus();
-        sendResponse('success', ['devmode' => $devModeStatus], SUCCESS_OK);
+        ResponseHandler::ResponseHandler::sendResponse('success', ['devmode' => $devModeStatus], SUCCESS_OK);
     }
     
     public function toggleDevMode() {
@@ -23,9 +23,9 @@ class DevController {
 
         $result = $devMode->toggleDevMode();
         if ($result) {
-            sendResponse('success', ['message' => 'Devmode toggled'], SUCCESS_OK);
+            ResponseHandler::sendResponse('success', ['message' => 'Devmode toggled'], SUCCESS_OK);
         } else {
-            sendResponse('error', ['message' => 'Failed to toggle devmode'], ERROR_INTERNAL_SERVER);
+            ResponseHandler::sendResponse('error', ['message' => 'Failed to toggle devmode'], ERROR_INTERNAL_SERVER);
         }
     }
 
@@ -84,15 +84,15 @@ class DevController {
                 $bool = $value == 'true' || $value == '1' ? true : false;
                 $result = $devMode->toggleDevModeFromValue($bool);
                 if ($result) {
-                    sendResponse('success', ['message' => 'Devmode status updated'], SUCCESS_OK);
+                    ResponseHandler::sendResponse('success', ['message' => 'Devmode status updated'], SUCCESS_OK);
                 } else {
-                    sendResponse('error', ['message' => 'Unable to update devmode status'], ERROR_INTERNAL_SERVER);
+                    ResponseHandler::sendResponse('error', ['message' => 'Unable to update devmode status'], ERROR_INTERNAL_SERVER);
                 }
             } else {
-                sendResponse('error', ['message' => $value . ' is not a true or false value'], ERROR_INTERNAL_SERVER);
+                ResponseHandler::sendResponse('error', ['message' => $value . ' is not a true or false value'], ERROR_INTERNAL_SERVER);
             }
         } else {
-            sendResponse('error', ['message' => 'Value for toggle cannot be null'], ERROR_INTERNAL_SERVER);
+            ResponseHandler::sendResponse('error', ['message' => 'Value for toggle cannot be null'], ERROR_INTERNAL_SERVER);
         }
     }
 }

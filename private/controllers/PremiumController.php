@@ -17,76 +17,11 @@ class PremiumController
         $this->logger = $logger;
     }
 
-    function sendResponse($status, $data, $httpCode)
-    {
-        if ($GLOBALS['config']['testmode'] !== 1) {
-            echo json_response(['status' => $status] + $data, $httpCode);
-            $GLOBALS['messages'][$status][] = $data && isset($data['message']) ? $data['message'] : null;
-        } else {
-            global $currentTest;
-            if ($data && isset($data['message'])) {
-                $GLOBALS['logs'][$currentTest][$status][] = $data['message'];  // Store the message with the test name
-            }
-        }
-    }
+
 
     protected static function getInputStream()
     {
         return file_get_contents('php://input');
-    }
-
-    function json_response($data, $status = 200, $limit = 3)
-    {
-        $is_dev_mode = false;
-        $debug_version = false;
-        if ($is_dev_mode) {
-            // In dev mode, output debugging information
-            $status = 403;
-            http_response_code($status);
-
-            echo "<h2>API Response:</h2>";
-            echo "<pre>";
-            $Result = array();
-            $Result['data'] = array(
-                'status' => $data['status'],
-                'result_limit' => $limit,
-            );
-            if ($data && isset($data['count'])) {
-                $Result['data']['count'] = $data['count'];
-            }
-            if ($data && isset($data['message'])) {
-                $Result['data']['message'] = $data['message'];
-            }
-            if ($data && isset($data['results'])) {
-                $Result['data']['results'] = $data['results'];
-            } elseif ($data && isset($data['result'])) {
-                $Result['data']['result'] = $data['result'];
-            } else {
-                $Result['data']['results'] = array_slice($data, 1, $limit);
-            }
-
-            echo json_encode($Result['data'], JSON_PRETTY_PRINT);
-            echo "</pre>";
-            if ($debug_version) {
-                echo "<h3>Debug version</h3>";
-
-                if (count($data) > $limit) {
-                    echo "<pre>";
-                    var_dump(array_slice($data, 0, $limit));
-                    echo "</pre>";
-                } else {
-                    echo "<pre>";
-                    var_dump($data, true);
-                    echo "</pre>";
-                }
-            }
-        } else {
-            // In production mode, output the JSON-encoded data and exit the script
-            http_response_code($status);
-            header('Content-Type: application/json');
-            echo json_encode(array_slice($data, 0, $limit), JSON_PRETTY_PRINT);
-            exit();
-        }
     }
 
     /**
@@ -99,7 +34,7 @@ class PremiumController
         foreach ($inputFields as $field) {
             if (!isset($postBody->{$field}) || empty($postBody->{$field})) {
                 $error = "Error: " . ucfirst($field) . " field is required";
-                sendResponse('error', ['message' => $error], ERROR_INVALID_INPUT);
+                ResponseHandler::sendResponse('error', ['message' => $error], ERROR_INVALID_INPUT);
                 $returnFlag = false;
             }
         }
@@ -111,7 +46,7 @@ class PremiumController
         $postBody = json_decode(static::getInputStream(), true);
         if (json_last_error() !== JSON_ERROR_NONE) {
             $this->logger->log('json_decode_error', ['error' => json_last_error_msg()]);
-            sendResponse('error', ['message' => json_last_error_msg()], 400);
+            ResponseHandler::sendResponse('error', ['message' => json_last_error_msg()], 400);
             return;
         }
 
@@ -133,14 +68,14 @@ class PremiumController
         // Validate if the user exists and has steam integrated
         if (!$dbSteamId) {
             $this->logger->log($userId, 'missing_steam', ['userId' => $userId]); // Log invalid user attempt
-            sendResponse('error', ['message' => 'User ID does not exist or is missing a steam account'], 404);
+            ResponseHandler::sendResponse('error', ['message' => 'User ID does not exist or is missing a steam account'], 404);
             return;
         }
 
         // Check if incoming User ID and steam ID match with database for integrity
         if ($dbSteamId !== $postBody['steam_id']) {
             $this->logger->log($userId, 'invalid_steam_id', ['userId' => $userId, 'incomingSteamId' => $postBody['steam_id'], 'dbSteamId' => $dbSteamId]); // Log invalid steam ID attempt
-            sendResponse('error', ['message' => 'Invalid Steam ID'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'Invalid Steam ID'], 400);
             return;
         }
 
@@ -150,13 +85,14 @@ class PremiumController
             $userModel = new User($this->tertiaryConnection);
             if ($userModel->setPremiumStatus($userId, $premiumStatus)) {
                 $this->logger->log($userId, 'create_premium_user', ['status' => $premiumStatus]);
-                sendResponse('success', ['message' => 'User added to premium list successfully'], 200);
+                ResponseHandler::sendResponse('success', ['message' => 'User added to premium list successfully'], 200);
             } else {
                 throw new Exception('Failed to add user to premium list');
             }
         } catch (Exception $e) {
             $this->logger->log($userId, 'database_error', ['error' => $e->getMessage()]);
-            sendResponse('error', ['message' => 'Database error: ' . $e->getMessage()], 500);
+            ResponseHandler::sendResponse('error', ['message' => 'Database error: ' . $e->getMessage()], 500);
+            return;
         }
     }
 
@@ -165,80 +101,112 @@ class PremiumController
     {
         // Directly use $userId passed as a parameter
         if (!isset($userId) || empty($userId)) {
-            sendResponse('error', ['message' => 'User ID is required'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'User ID is required'], 400);
             return;
         }
 
         $userModel = new User($this->tertiaryConnection);
         if ($userModel->removePremiumStatus($userId)) {
             $this->logger->log($userId, 'remove_premium_user', ['status' => 'success']);
-            sendResponse('success', ['message' => 'User removed from premium list successfully'], 200);
+            ResponseHandler::sendResponse('success', ['message' => 'User removed from premium list successfully'], 200);
         } else {
             $this->logger->log($userId, 'remove_premium_user_failed', ['status' => 'failure']);
-            sendResponse('error', ['message' => 'Failed to remove user from premium list'], 500);
+            ResponseHandler::sendResponse('error', ['message' => 'Failed to remove user from premium list'], 500);
         }
     }
 
-
-    public function checkPremiumStatus($userId)
+    public function checkPremiumStatus(int $userId)
     {
-        // Convert the $userId parameter to an integer if it's passed as a string
-        $userId = intval($userId);
-
         if (!$userId) {
             $this->logger->log(0, 'invalid_user_id', ['userId' => $userId]);
-            sendResponse('error', ['message' => 'Invalid user ID provided'], 400);
-            return;
+            return ResponseHandler::sendResponse('error', ['message' => 'Invalid user ID provided'], 400);
         }
-
-
-        $isPremium = $this->checkClassPremiumStatus($userId);
-        
-
-        if ($isPremium !== null) {
-            $this->logger->log($userId, 'check_premium_status', ['status' => $isPremium]);
-            sendResponse('success', ['user_id' => $userId, 'is_premium' => $isPremium], 200);
-        } else {
-            $this->logger->log($userId, 'user_not_found', ['userId' => $userId]);
-            sendResponse('error', ['message' => 'User not found'], 404);
-        }
-    }
-
-    private function checkClassPremiumStatus($userId)
-    {
-        // Convert the $userId parameter to an integer if it's passed as a string
-        $userId = intval($userId);
     
-        if (!$userId) {
-            $this->logger->log(0, 'invalid_user_id', ['userId' => $userId]);
-            return $this->sendResponse('error', ['message' => 'Invalid user ID provided'], 400);
+        try {
+
+        $userModel = new User($this->dbConnection);
+        $steamCheck = $userModel->hasSteam($userId);
+
+        
+            if (!$steamCheck['hasSteam']) {
+                $this->logger->log($userId, 'steam_not_linked', ['userId' => $userId]);
+                return ResponseHandler::sendResponse('error', ['message' => 'Steam account not linked'], 404);
+            }
+
+            $steamId = $steamCheck['steamId'];
+            $isPremium = $this->checkClassPremiumStatus($steamId);
+            if ($isPremium !== null) {
+                $this->logger->log($userId, 'check_premium_status', ['status' => $isPremium]);
+                return ResponseHandler::sendResponse('success', ['user_id' => $userId, 'is_premium' => $isPremium], 200);
+            } else {
+                $this->logger->log($userId, 'steam_not_found', ['userId' => $userId]);
+                return ResponseHandler::sendResponse('error', ['message' => 'Steam not found'], 404);
+            }
+        } catch (Exception $e) {
+            $errorMessage = $e->getMessage();
+            $this->logger->log($userId, 'database_error', ['error' => $errorMessage]);
+            return ResponseHandler::sendResponse('error', ['message' => $errorMessage], 500);
         }
+    }
+
+    private function checkClassPremiumStatus($steamId)
+    {
 
         // The 'is_premium' status is stored in the 'PlayerStats' table under 'IsVip' column
         try {
-            $query = "SELECT IsVip FROM PlayerStats WHERE SteamID = :userId";
-            $params = [':userId' => $userId];
+            $query = "SELECT IsVip FROM PlayerStats WHERE SteamID = :steamId";
+            $params = [':userId' => $steamId];
             $result = $this->tertiaryConnection->query($query, $params);
     
             if (!empty($result) && isset($result[0]['IsVip'])) {
                 $isPremium = (bool) $result[0]['IsVip'];
-                $this->logger->log($userId, 'check_premium_status', ['status' => $isPremium]);
-                return $this->sendResponse('success', ['user_id' => $userId, 'is_premium' => $isPremium], 200);
+                $this->logger->log($steamId, 'check_premium_status', ['status' => $isPremium]);
+                return $isPremium;
             } else {
-                $this->logger->log($userId, 'user_not_found', ['userId' => $userId]);
-                return $this->sendResponse('error', ['message' => 'User not found'], 404);
+                // Handle the case where $result is null or an empty array
+                $this->logger->log($steamId, 'steam_not_found', ['userId' => $steamId]);
+                throw new Exception('Steam not found');
             }
         } catch (Exception $e) {
-            $this->logger->log($userId, 'database_error', ['error' => $e->getMessage()]);
-            return $this->sendResponse('error', ['message' => 'Database error: ' . $e->getMessage()], 500);
+            $this->logger->log($steamId, 'database_error', ['error' => $e->getMessage()]);
+            throw new Exception('Database error: ' . $e->getMessage());
         }
     }
     
+
+    // private function checkClassPremiumStatus($userId)
+    // {
+    //     // Convert the $userId parameter to an integer if it's passed as a string
+    //     $userId = intval($userId);
+
+    //     if (!$userId) {
+    //         throw new Exception('Invalid user ID provided');
+    //     }
+
+    //     // The 'is_premium' status is stored in the 'PlayerStats' table under 'IsVip' column
+    //     try {
+    //         $query = "SELECT IsVip FROM PlayerStats WHERE SteamID = :userId";
+    //         $params = [':userId' => $userId];
+    //         $result = $this->tertiaryConnection->query($query, $params);
+
+    //         if (!empty($result) && isset($result[0]['IsVip'])) {
+    //             $isPremium = (bool) $result[0]['IsVip'];
+    //             $this->logger->log($userId, 'check_premium_status', ['status' => $isPremium]);
+    //             return $isPremium;
+    //         } else {
+    //             throw new Exception('User not found');
+    //         }
+    //     } catch (Exception $e) {
+    //         $this->logger->log($userId, 'database_error', ['error' => $e->getMessage()]);
+    //         throw new Exception('Database error: ' . $e->getMessage());
+    //     }
+    // }
+
     public function listAllPremiumUsers()
     {
         $userModel = new User($this->tertiaryConnection);
         $premiumUsers = $userModel->getAllPremiumUsers();
-        sendResponse('success', ['premium_users' => $premiumUsers], 200);
+        ResponseHandler::sendResponse('success', ['premium_users' => $premiumUsers], 200);
     }
 
     private function updatePremiumUser(int $userId, bool $premiumStatus)
@@ -252,7 +220,7 @@ class PremiumController
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             $this->logger->log($userId, 'json_decode_error', ['error' => json_last_error_msg()]); // Log JSON decode error
-            sendResponse('error', ['message' => json_last_error_msg()], 400);
+            ResponseHandler::sendResponse('error', ['message' => json_last_error_msg()], 400);
             return;
         }
 
@@ -261,7 +229,7 @@ class PremiumController
         foreach ($validationResults as $key => $result) {
             if (!$result['isValid']) {
                 $this->logger->log($userId, 'validation_error', ['field' => $key, 'message' => $result['message']]);
-                sendResponse('error', ['message' => $result['message']], 400);
+                ResponseHandler::sendResponse('error', ['message' => $result['message']], 400);
                 return;
             }
         }
@@ -271,11 +239,11 @@ class PremiumController
         // Update premium status
         if ($userModel->updatePremiumStatus($userId, $premiumStatus)) {
             $this->logger->log($userId, 'update_premium_status', ['status' => $premiumStatus]); // Log successful update
-            sendResponse('success', ['message' => 'Premium status updated successfully'], 200);
+            ResponseHandler::sendResponse('success', ['message' => 'Premium status updated successfully'], 200);
             return;
         } else {
             $this->logger->log($userId, 'failed_update_premium_status', ['status' => $premiumStatus]); // Log failed update attempt
-            sendResponse('error', ['message' => 'Failed to update premium status'], 500);
+            ResponseHandler::sendResponse('error', ['message' => 'Failed to update premium status'], 500);
             return;
         }
     }
@@ -296,36 +264,6 @@ class PremiumController
             return ['success' => true, 'message' => 'VIP status successfully updated.'];
         } else {
             return ['success' => false, 'message' => 'Failed to update VIP status. Please check the database connection and data integrity.'];
-        }
-    }
-
-    /**
-     * Checks if a given user ID has a linked Steam account.
-     *
-     * Queries the database to determine if the user associated with the provided user ID
-     * has a linked Steam account. Returns information about the presence of a Steam account
-     * and the Steam ID if available.
-     *
-     * @param int $userId The unique identifier of the user.
-     * @return array An array containing a flag indicating whether a Steam account is linked
-     *               and the Steam ID if applicable.
-     */
-    private function hasSteam($userId)
-    {
-        try {
-            // Query to check if the user has a linked Steam account
-            $query = 'SELECT steam_id_64 FROM profiles WHERE user_id = :id';
-            $params = array(':id' => $userId);
-            $result = $this->dbConnection->query($query, $params);
-
-            // Check if a Steam ID was found
-            if (!empty($result) && isset($result[0]['steam_id_64'])) {
-                return ['hasSteam' => true, 'steamId' => $result[0]['steam_id_64']];
-            } else {
-                return ['hasSteam' => false];
-            }
-        } catch (Exception $e) {
-            throw new Exception('An unexpected error occurred.');
         }
     }
 

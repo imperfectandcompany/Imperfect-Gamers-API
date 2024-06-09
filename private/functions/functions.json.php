@@ -25,7 +25,7 @@
  */
 function json_response($data, $status = 200, $limit = 3)
 {
-    $is_dev_mode = DEVMODE;
+    $is_dev_mode = false;
     $debug_version = false;
     if ($is_dev_mode) {
         // In dev mode, output debugging information

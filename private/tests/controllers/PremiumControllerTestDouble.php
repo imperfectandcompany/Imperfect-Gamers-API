@@ -22,5 +22,10 @@ class PremiumControllerTestDouble extends PremiumController
     {
         return static::$inputStream;
     }
+    function sendResponse($status, $data, $httpCode)
+    {
+        // Instead of printing, return the data for assertion in tests
+        return ['status' => $status, 'data' => $data, 'httpCode' => $httpCode];
+    }
 
 }

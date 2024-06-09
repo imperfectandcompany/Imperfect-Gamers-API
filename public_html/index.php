@@ -78,6 +78,7 @@ $GLOBALS['messages']['test'] = array(); //Main array for all status messages
 
 // includes
 include ($GLOBALS['config']['private_folder'] . '/functions/functions.general.php');
+include ($GLOBALS['config']['private_folder'] . '/classes/class.ResponseHandler.php');
 include ($GLOBALS['config']['private_folder'] . '/functions/functions.json.php');
 include ($GLOBALS['config']['private_folder'] . '/functions/functions.database.php');
 

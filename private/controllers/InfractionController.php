@@ -9,8 +9,6 @@ class InfractionController
     public function __construct($dbManager, $logger)
     {
         $this->dbConnection = $dbManager->getConnection('gameserver');
-        
-        // Connect specifically to the 'sharptimer' database for premium user management
         $this->secondaryConnection = $dbManager->getConnectionByDbName('gameserver', 'sharptimer');
 
         $this->logger = $logger;
@@ -30,7 +28,7 @@ class InfractionController
             $this->logger->log(0, LOG_FETCH_ALL_INFRACTIONS, 'all');
 
             // Send successful response with data
-            sendResponse('success', $results, SUCCESS_OK);
+            ResponseHandler::sendResponse('success', $results, SUCCESS_OK);
         } catch (InvalidArgumentException $e) {
             throwError($e->getMessage(), ERROR_INVALID_INPUT);
         } catch (RuntimeException $e) {
@@ -62,7 +60,7 @@ class InfractionController
             $this->logger->log(0, $logAction, ['type' => $type]);
 
             // Send successful response with data
-            sendResponse('success', ['results' => $results], SUCCESS_OK);
+            ResponseHandler::sendResponse('success', ['results' => $results], SUCCESS_OK);
         } catch (InvalidArgumentException $e) {
             throwError($e->getMessage(), ERROR_INVALID_INPUT);
         } catch (RuntimeException $e) {
@@ -84,7 +82,7 @@ class InfractionController
             $this->logger->log(0, $logAction, ['id' => $id, 'type' => $type]);
     
             // Send successful response with infraction details
-            sendResponse('success', ['result' => $result], SUCCESS_OK);
+            ResponseHandler::sendResponse('success', ['result' => $result], SUCCESS_OK);
         } catch (InvalidArgumentException $e) {
             throwError($e->getMessage(), ERROR_INVALID_INPUT);
         } catch (RuntimeException $e) {
@@ -106,7 +104,7 @@ class InfractionController
             // Log the action, adjust logging as necessary
             $this->logger->log(0, 'FETCH_ALL_INFRACTIONS_PAGINATED', "Fetching page $page of all infractions.");
 
-            sendResponse('success', $response, SUCCESS_OK);
+            ResponseHandler::sendResponse('success', $response, SUCCESS_OK);
         } catch (Exception $e) {
             throwError($e->getMessage(), ERROR_INTERNAL_SERVER);
         }
@@ -124,7 +122,7 @@ class InfractionController
             // Log the action, adjust logging as necessary
             $this->logger->log(0, 'FETCH_INFRACTIONS_BY_TYPE_PAGINATED', "Fetching page $page of infractions for type: $type");
 
-            sendResponse('success', $response, SUCCESS_OK);
+            ResponseHandler::sendResponse('success', $response, SUCCESS_OK);
         } catch (Exception $e) {
             throwError($e->getMessage(), ERROR_INTERNAL_SERVER);
         }
@@ -140,7 +138,7 @@ class InfractionController
             $this->logger->log(0, 'LOG_FETCH_INFRACTIONS_COUNT', 'all');
     
             // Send successful response with count
-            sendResponse('success', ['count' => $count], SUCCESS_OK);
+            ResponseHandler::sendResponse('success', ['count' => $count], SUCCESS_OK);
         } catch (Exception $e) {
             throwError($e->getMessage(), ERROR_INTERNAL_SERVER);
         }
@@ -161,7 +159,7 @@ class InfractionController
             $this->logger->log(0, 'LOG_FETCH_INFRACTIONS_COUNT', ['type' => $type ?? 'all']);
     
             // Send successful response with count
-            sendResponse('success', ['count' => $count], SUCCESS_OK);
+            ResponseHandler::sendResponse('success', ['count' => $count], SUCCESS_OK);
         } catch (Exception $e) {
             throwError($e->getMessage(), ERROR_INTERNAL_SERVER);
         }
@@ -190,7 +188,7 @@ public function searchInfractionsByNameAndType(string $query, ?string $type = nu
             $this->logger->log(0, $logAction, ['query' => $query, 'type' => $type]);
 
             // Send successful response with data
-            sendResponse('success', ['results' => $results], SUCCESS_OK);
+            ResponseHandler::sendResponse('success', ['results' => $results], SUCCESS_OK);
         } catch (InvalidArgumentException $e) {
             throwError($e->getMessage(), ERROR_INVALID_INPUT);
         } catch (Exception $e) {
@@ -210,7 +208,7 @@ public function searchInfractionsByNameAndType(string $query, ?string $type = nu
             $this->logger->log(0, $logAction, ['steam_id' => $steamId]);
     
             // Send successful response with infraction details
-            sendResponse('success', ['result' => $result], SUCCESS_OK);
+            ResponseHandler::sendResponse('success', ['result' => $result], SUCCESS_OK);
         } catch (RuntimeException $e) {
             throwError($e->getMessage(), ERROR_NOT_FOUND); // Use NOT FOUND for infraction not found
         } catch (Exception $e) {
@@ -230,7 +228,7 @@ public function searchInfractionsByNameAndType(string $query, ?string $type = nu
             $this->logger->log(0, $logAction, ['steam_id' => $steamId]);
     
             // Send successful response with infraction details
-            sendResponse('success', ['results' => $results], SUCCESS_OK);
+            ResponseHandler::sendResponse('success', ['results' => $results], SUCCESS_OK);
         } catch (RuntimeException $e) {
             throwError($e->getMessage(), ERROR_NOT_FOUND); // Use NOT FOUND for infraction details not found
         } catch (Exception $e) {
@@ -252,7 +250,7 @@ public function searchInfractionsByNameAndType(string $query, ?string $type = nu
             $results = $infractionService->getInfractionsDetailsBySteamIdPaginated($steamId, $page, $perPage);
     
             // Send successful response with data
-            sendResponse('success', $results, SUCCESS_OK);
+            ResponseHandler::sendResponse('success', $results, SUCCESS_OK);
         } catch (InvalidArgumentException $e) {
             throwError($e->getMessage(), ERROR_INVALID_INPUT);
         } catch (RuntimeException $e) {
@@ -273,7 +271,7 @@ public function searchForPlayerNamesOptionalType(?string $type = null){
         $this->logger->log(0, $logAction, ['type' => $type]);
 
         // Send successful response with data
-        sendResponse('success', ['result'=> $results], SUCCESS_OK);
+        ResponseHandler::sendResponse('success', ['result'=> $results], SUCCESS_OK);
     } catch (InvalidArgumentException $e) {
         throwError($e->getMessage(), ERROR_INVALID_INPUT);
     } catch (Exception $e) {
@@ -297,7 +295,7 @@ public function searchForPlayerNamesOptionalType(?string $type = null){
         $this->logger->log(0, $logAction, ['admin_steamid' => $adminSteamId]);
 
         // Send successful response with infraction details
-        sendResponse('success', ['results' => $results], SUCCESS_OK);
+        ResponseHandler::sendResponse('success', ['results' => $results], SUCCESS_OK);
     } catch (RuntimeException $e) {
         throwError($e->getMessage(), ERROR_NOT_FOUND); // Use NOT FOUND for infraction details not found
     } catch (Exception $e) {
@@ -319,7 +317,7 @@ public function searchForPlayerNamesOptionalType(?string $type = null){
             $this->logger->log(0, $logAction, ['admin_id' => $adminId]);
     
             // Send successful response with infraction details
-            sendResponse('success', ['result' => $result], SUCCESS_OK);
+            ResponseHandler::sendResponse('success', ['result' => $result], SUCCESS_OK);
         } catch (RuntimeException $e) {
             throwError($e->getMessage(), ERROR_NOT_FOUND); // Use NOT FOUND for infraction not found
         } catch (Exception $e) {
@@ -341,7 +339,7 @@ public function searchForPlayerNamesOptionalType(?string $type = null){
             $results = $infractionService->getInfractionsDetailsByAdminIdPaginated($adminSteamId, $page, $perPage);
     
             // Send successful response with data
-            sendResponse('success', $results, SUCCESS_OK);
+            ResponseHandler::sendResponse('success', $results, SUCCESS_OK);
         } catch (InvalidArgumentException $e) {
             throwError($e->getMessage(), ERROR_INVALID_INPUT);
         } catch (RuntimeException $e) {
@@ -368,7 +366,7 @@ public function searchForPlayerNamesOptionalType(?string $type = null){
                 return 'sa_mutes';
             default:
                 // If no type is provided, return a query that selects from both tables
-                sendResponse('error', ['infractions' => $type], ERROR_INVALID_INPUT);
+                ResponseHandler::sendResponse('error', ['infractions' => $type], ERROR_INVALID_INPUT);
                 die();
         }
     }

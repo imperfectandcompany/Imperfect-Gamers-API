@@ -5,7 +5,6 @@
 include_once ($GLOBALS['config']['private_folder'] . '/tests/test_infraction.php');
 include_once ($GLOBALS['config']['private_folder'] . '/controllers/InfractionController.php');
 include_once ($GLOBALS['config']['private_folder'] . '/tests/test_infraction.php');
-include_once ($GLOBALS['config']['private_folder'] . '/controllers/PremiumController.php');
 include_once ($GLOBALS['config']['private_folder'] . '/tests/controllers/PremiumControllerTestDouble.php');
 include_once ($GLOBALS['config']['private_folder'] . '/tests/test_premium.php');
 include_once ($GLOBALS['config']['private_folder'] . '/classes/class.testRunner.php');
@@ -45,7 +44,7 @@ $testLogger = new Logger($testDbConnection);
 // Initialize the Controller object once
 $testControllers = [
     'infractions' => new InfractionController($testDbManager, $testLogger),
-    'premium' => new PremiumController($testDbManager, $testLogger),
+    'premium' => new PremiumControllerTestDouble($testDbManager, $testLogger)
 ];
 
 function customAssert($condition, $message)
@@ -71,7 +70,7 @@ $testInfraction = [
 
 // Infraction tests
 $testPremium = [
-    "testCanCheckPremiumStatus",
+    "testCanCheckPremiumStatus"
 ];
 
 

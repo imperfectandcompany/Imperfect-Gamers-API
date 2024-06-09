@@ -26,16 +26,35 @@ class Logger {
      * @param array|null $data Additional data related to the activity.
      */
     // TODO add error handling for the query execution and error reporting
+    // public function log($userId, $action, $data = null) {
+    //     if($userId == 0) {
+    //         // if user is not logged in lets use uid 19 which is reserved for guest
+    //         $userId = 19;
+    //     }        
+    //     // Create a log entry in the database
+    //     $query = "INSERT INTO activity_log (user_id, action, activity_data) VALUES (?, ?, ?)";
+    //     $params = [$userId, $action, json_encode($data)];
+    //     return $this->dbConnection->query($query, $params);
+    // }
+
     public function log($userId, $action, $data = null) {
-        if($userId == 0) {
+        if ($userId == 0 || isTest()) {
             // if user is not logged in lets use uid 19 which is reserved for guest
             $userId = 19;
-        }        
+        }
+    
+        // Check if an exception has been thrown before logging
+        if ($action === 'error' && isset($data['error']) && strpos($data['error'], 'Exception') !== false) {
+            // An exception has already been thrown, skip logging
+            return;
+        }
+    
         // Create a log entry in the database
         $query = "INSERT INTO activity_log (user_id, action, activity_data) VALUES (?, ?, ?)";
         $params = [$userId, $action, json_encode($data)];
-        $result = $this->dbConnection->query($query, $params);
+        return $this->dbConnection->query($query, $params);
     }
+
 
 /**
  * Get logs with a specific action for a specific user.

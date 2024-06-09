@@ -1,11 +1,11 @@
 <?php
 // Base directory setup
 define('BASE_DIRECTORY', '/usr/www/igfastdl/imperfectgamers-api');
+
 define('PRIVATE_FOLDER', "/usr/www/igfastdl/imperfectgamers-api/private");
 
-
 // Site URL configuration
-define('SITE_URL', "https://imperfectgamers.org");
+define('SITE_URL', "https://api.imperfectgamers.org");
 
 // Avatar and Service URLs and paths
 define('AVATAR_URL', "https://cdn.postogon.com/assets/img/profile_pictures");
