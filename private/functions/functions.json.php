@@ -26,8 +26,9 @@
 function json_response($data, $status = 200, $limit = 3)
 {
     $is_dev_mode = DEVMODE;
-    $debug_version = false;
-    if ($is_dev_mode) {
+    $debug_version = true;
+    $prod_version = true;
+    if ($is_dev_mode && isset($GLOBALS['user_id'])) {
         // In dev mode, output debugging information
         $status = 403;
         http_response_code($status);
@@ -39,15 +40,15 @@ function json_response($data, $status = 200, $limit = 3)
             'status' => $data['status'],
             'result_limit' => $limit,
         );
-        if($data && isset($data['count'])){
+        if ($data && isset($data['count'])) {
             $Result['data']['count'] = $data['count'];
         }
-        if($data && isset($data['message'])){
+        if ($data && isset($data['message'])) {
             $Result['data']['message'] = $data['message'];
         }
-        if($data && isset($data['results'])){
+        if ($data && isset($data['results'])) {
             $Result['data']['results'] = $data['results'];
-        } elseif ($data && isset($data['result'])){
+        } elseif ($data && isset($data['result'])) {
             $Result['data']['result'] = $data['result'];
         } else {
             $Result['data']['results'] = array_slice($data, 1, $limit);
@@ -55,7 +56,7 @@ function json_response($data, $status = 200, $limit = 3)
 
         echo json_encode($Result['data'], JSON_PRETTY_PRINT);
         echo "</pre>";
-        if($debug_version){
+        if ($debug_version) {
             echo "<h3>Debug version</h3>";
 
             if (count($data) > $limit) {
@@ -67,6 +68,12 @@ function json_response($data, $status = 200, $limit = 3)
                 var_dump($data, true);
                 echo "</pre>";
             }
+        }
+        if ($prod_version) {
+            echo "<h3>Production version</h3>";
+            echo "<pre>";
+            echo json_encode(array_slice($data, 0, $limit), JSON_PRETTY_PRINT);
+            echo "</pre>";
         }
     } else {
         // In production mode, output the JSON-encoded data and exit the script

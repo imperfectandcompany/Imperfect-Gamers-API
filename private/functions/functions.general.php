@@ -59,7 +59,7 @@ function trimSlash($file)
 function isTest()
 {
     // Return true if testmode is explicitly set to true
-    if ($GLOBALS['config']['devmode'] && isset($GLOBALS['config']['testmode']) && $GLOBALS['config']['testmode'] === true) {
+    if ($GLOBALS['config']['devmode'] && isset($GLOBALS['config']['testmode']) && $GLOBALS['config']['testmode'] === true && isset($GLOBALS['user_id'])) {
         return true;
     } else {
         return false;
