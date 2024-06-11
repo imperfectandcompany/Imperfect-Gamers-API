@@ -7,6 +7,7 @@ include_once ($GLOBALS['config']['private_folder'] . '/controllers/InfractionCon
 include_once ($GLOBALS['config']['private_folder'] . '/tests/test_infraction.php');
 include_once ($GLOBALS['config']['private_folder'] . '/tests/controllers/PremiumControllerTestDouble.php');
 include_once ($GLOBALS['config']['private_folder'] . '/tests/test_premium.php');
+include_once ($GLOBALS['config']['private_folder'] . '/tests/test_premium_class.php');
 include_once ($GLOBALS['config']['private_folder'] . '/classes/class.testRunner.php');
 include_once ($GLOBALS['config']['private_folder'] . '/classes/class.logger.php');
 
@@ -43,8 +44,8 @@ $testDbConnection = $testDbManager->getConnection('default');
 $testLogger = new Logger($testDbConnection);
 // Initialize the Controller object once
 $testControllers = [
-    'infractions' => new InfractionController($testDbManager, $testLogger),
-    'premium' => new PremiumControllerTestDouble($testDbManager, $testLogger)
+    'premium' => new PremiumControllerTestDouble($testDbManager, $testLogger),
+    'premiumClass' => new Premium($testDbManager->getConnection('gameserver'), $testDbManager->getConnectionByDbName('gameserver', 'sharptimer')) // initialize Premium class with the correct DB connections
 ];
 
 function customAssert($condition, $message)
@@ -55,30 +56,33 @@ function customAssert($condition, $message)
     }
 }
 
-
-// Infraction tests
-$testInfraction = [
-    "testCanFetchInfractions",
-    "testCanFetchInfractionDetails",
-    "testCanSaveInfraction",
-    "testCanRemoveInfraction",
-    "testCanGetInfractionsCount",
-    "testCanCheckInfractionsBySteamId",
-    // Additional test functions as needed...
+$testPremiumController = [
+    "testCanCheckPremiumStatus",
+    "testUpdatePremiumUserHandlesMissingFields",
+    "testUpdatePremiumUserInvalidSteamIdFormat",
+    "testUpdatePremiumUserDataMismatch",
+    "testUpdatePremiumUserUnregisteredUserId",
+    "testUpdatePremiumUserValidData",
+    "testTogglePremiumStatus",
+    "testCheckUserExistsInServer",
+    "testListAllPremiumUsers"
 ];
 
-
-// Infraction tests
-$testPremium = [
-    "testCanCheckPremiumStatus"
+$testPremiumClass = [
+    "testGenerateNewFlags",
+    "testGetCurrentFlagsExists",
+    "testGetCurrentFlagsDoesNotExist",
+    "testGenerateNewFlagsAddPremium",
+    "testGenerateNewFlagsRemovePremium",
+    "testIsPlayerExistsSharpTimer"
 ];
 
 
 // TODO: Make sure it checks to see each test file in tests exists...
 
 $tests = [
-    "Infraction Tests" => ['controller' => 'infractions', 'tests' => $testInfraction],
-    "Premium Tests" => ['controller' => 'premium', 'tests' => $testPremium],
+    "Premium Controller Tests" => ['controller' => 'premium', 'tests' => $testPremiumController],
+    "Premium Class Tests" => ['controller' => 'premiumClass', 'tests' => $testPremiumClass]
 ];
 
 $runner = new TestRunner($testControllers);
@@ -93,7 +97,8 @@ unset($testPremium);
 unset($tests);
 unset($runner);
 
-
+// TODO: SEED DATABASE AND DROP ON RUN (TEARDOWN) 
+// TODO: REFACTOR FOR TRANSACTIONAL ROLLBACK
 // -- Create new databases (FUTURE PLANS TO AUTOMATE)
 // CREATE DATABASE sharptimer_tests;
 // CREATE DATABASE simple_admin_tests;

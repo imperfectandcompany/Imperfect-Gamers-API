@@ -21,7 +21,7 @@ class TestRunner
     }
 
     public function runTestsForController($controller, $tests) {
-        // Assuming you iterate through the $tests array inside the runTests() method
+        // Iterate through the $tests array inside the runTests() method
         $this->controller = $controller;
         $this->runTests($tests);
     }
@@ -37,7 +37,11 @@ class TestRunner
         foreach ($categories as $category => $testData) {
 
             // Extract the relevant controller
-            $controllerName = $testData['controller'];
+            if (isset($testData['controller'])) {
+                $controllerName = $testData['controller'];
+            } elseif (isset($testData['class'])) {
+                $controllerName = $testData['class'];
+            }
             if (!isset($this->controllers[$controllerName])) {
                 throw new Exception("Controller $controllerName not provided.");
             }

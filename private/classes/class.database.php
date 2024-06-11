@@ -1,42 +1,4 @@
 <?php
-/**
- * DatabaseConnector class provides methods for connecting to a MySQL database and performing common database operations.
- *
- * This class provides a wrapper around PHP's PDO database driver,
- * allowing you to easily connect to and interact with your database.
- * It provides methods for executing queries, inserting, updating,
- * and deleting data, as well as for fetching rows and counts.
- *
- * Usage:
- *
- * Instantiate the class by providing the required database connection
- * details: host, port, database name, username, password, and charset.
- * Once instantiated, you can use the provided methods to interact with
- * the database. For example:
- *
- * $db = new DatabaseConnector('localhost', 3306, 'my_database', 'root', '', 'utf8mb4');
- * $result = $db->viewData('my_table', '*', 'WHERE id = :id', array(':id' => array(123, PDO::PARAM_INT)));
- *
- * Methods:
- *
- * - __construct($host, $port, $db, $user, $pass, $charset) - creates a new database connection object using the provided connection details
- * - getConnection() - returns the database connection objectx
- * - viewCount($table, $filter_params = null, $query = null) - returns the count of rows matching the specified criteria in a given table
- * - query($query, $params = array()) - runs a specified query against the database and returns the resulting data (if applicable)
- * - viewData($table, $select = '*', $query = null, $filter_params = null) - returns an array of data from a specified table, filtered and/or ordered as specified
- * - viewSingleData($table, $select = '*', $query = null, $filter_params = null) - returns a single row of data from a specified table
- * - insertData($table, $rows, $values, $filter_params = null) - inserts a new row into a specified table with the given column names and values
- * - insertDataUnique($table, $rows, $values, $update_values, $filter_params = null) - inserts a new row into a specified table with the given column names and values, or updates an existing row with the specified values if a duplicate key is found
- * - updateData($table, $setClause, $whereClause = null, $filter_params = null) - updates a row or rows in a specified table with the given values, filtered as specified
- * - deleteData($table, $rows, $filter_params = null) - deletes a row or rows from a specified table, filtered as specified
- *
- * 
- * future stuff:
- * additional features such as connection pooling, more robust error handling, configuration file management, etc.
- * 
- * 
- * @package Imperfect Gamers
- */
 class DatabaseConnector
 {
     private $dbConnection = null;
@@ -178,6 +140,12 @@ class DatabaseConnector
         }
     }
 
+    // Getter method for dbConnection
+    public function getConnection()
+    {
+        return $this->dbConnection;
+    }
+
     /**
      * Handles database exceptions, enhancing error reporting with detailed information.
      *
@@ -257,7 +225,7 @@ class DatabaseConnector
             $explanation .= "This error occurs when the query attempts to access a table or view that does not exist in the database.<br>";
 
             $explanation .= "<br><strong>Server:</strong><br> {$serverDetails['host']} on port {$serverDetails['port']} <br><br><strong>Database:</strong><br> {$serverDetails['database']}<br>";
-            $explanation .= "<br>" .$schemaCheck; // Include schema validation results
+            $explanation .= "<br>" . $schemaCheck; // Include schema validation results
 
 
             $breakdown = "<br><strong>Debugging Steps:</strong><br>";
@@ -271,16 +239,36 @@ class DatabaseConnector
             $suggestions .= "- There might be a misconfiguration in the database connection settings that is pointing to the wrong database.";
 
             return ($explanation . $specifics . $breakdown . $suggestions);
+            // Handling SQLSTATE[HY093]: Invalid parameter number
+        } else if ($errorCode === 'HY093') {
+            $explanation = "<strong>Invalid parameter number error occurred</strong> while executing the SQL query:<br><br>";
+            $explanation .= "<pre>$query</pre><br>With the following parameters:<br><pre>";
+            $explanation .= print_r($params, true) . "</pre><br>";
+            $explanation .= "This error typically occurs when the number of placeholders in the SQL query does not match the number of parameters provided.<br><br>";
+
+            $debuggingSteps = "<br><br><strong>Debugging Steps:</strong><br><br>";
+            $debuggingSteps .= "1. Verify that every placeholder in the query (usually a '?' for unnamed or ':name' for named placeholders) has a corresponding parameter in the provided parameter array.<br>";
+            $debuggingSteps .= "2. Check if any parameter is missing or extra in the parameter array.<br>";
+            $debuggingSteps .= "3. Ensure that parameters are passed in the correct order, especially for unnamed placeholders.<br><br>";
+
+            $solutions = "<strong>Possible Solutions:</strong><br><br>";
+            $solutions .= "- Adjust the query or the parameter array to ensure that their counts match.<br>";
+            $solutions .= "- Review the logic that populates the parameter array to catch discrepancies early.<br>";
+
+            return ($explanation . $specifics . $debuggingSteps . $solutions);
         } else {
             // Handle other types of exceptions
             return ("An unexpected database exception occurred: " . $errorMessage);
         }
     }
 
-    function extractTableNameFromError($errorMessage) {
+    function extractTableNameFromError($errorMessage)
+    {
         // Pattern to extract table name, handling different quoting and schema inclusion
-        if (preg_match("/'([a-zA-Z0-9_\.]+)'/", $errorMessage, $matches) ||  // Handles single quotes and schema.table format
-            preg_match("/`([a-zA-Z0-9_\.]+)`/", $errorMessage, $matches)) {  // Handles backticks and schema.table format
+        if (
+            preg_match("/'([a-zA-Z0-9_\.]+)'/", $errorMessage, $matches) ||  // Handles single quotes and schema.table format
+            preg_match("/`([a-zA-Z0-9_\.]+)`/", $errorMessage, $matches)
+        ) {  // Handles backticks and schema.table format
             // Extract table name which might include schema name
             $fullTableName = explode('.', $matches[1]);
             return end($fullTableName);  // Returns the table name part if schema.table, else just table
@@ -289,77 +277,35 @@ class DatabaseConnector
     }
 
     function checkDatabaseSchema($databaseName, $tableName)
-{
-    $connection = $this->dbConnection;  // Use your established database connection
-
-    try {
-        // Ensure the table name is a valid SQL identifier to prevent SQL injection
-        if (!preg_match('/^[a-zA-Z0-9_$]+$/', $tableName)) {
-            throw new InvalidArgumentException("Invalid table name");
-        }
-
-        // Prepare the SQL statement to check for the table
-        $sql = "SHOW TABLES LIKE '$tableName'";  // Direct inclusion of the table name, use with caution
-        $stmt = $connection->query($sql);
-        $result = $stmt->fetchAll();
-
-        if (empty($result)) {
-            // Table does not exist
-            return "<strong>No such table:</strong><br> The table '$tableName' does not exist in the database '$databaseName'.<br>";
-        } else {
-            // Table exists
-            return "<strong>Table found:</strong><br> The table '$tableName' exists in the database '$databaseName'.<br>";
-        }
-    } catch (PDOException $e) {
-        // Handle potential errors in a real-world scenario appropriately
-        return "<strong>Database error:</strong> " . $e->getMessage() . "<br>";
-    } catch (InvalidArgumentException $e) {
-        // Handle invalid table names
-        return "<strong>Input error:</strong> " . $e->getMessage() . "<br>";
-    }
-}
-
-
-    public function handleException($exception, $query, $params)
     {
-        // Extract the most important parts of the query to display
-        $queryPreview = substr($query, 0, 100) . '...';  // Display only the first 100 characters
+        $connection = $this->dbConnection;  // Use your established database connection
 
-        // Create a structured, concise error message
-        $errorMessage = sprintf(
-            "Error [%s]: %s in %s on line %d. Query: %s",
-            $exception->getCode(),
-            $exception->getMessage(),
-            $exception->getFile(),
-            $exception->getLine(),
-            $queryPreview
-        );
+        try {
+            // Ensure the table name is a valid SQL identifier to prevent SQL injection
+            if (!preg_match('/^[a-zA-Z0-9_$]+$/', $tableName)) {
+                throw new InvalidArgumentException("Invalid table name");
+            }
 
-        // Log the full error details in a single, structured JSON line for detailed analysis
-        $errorDetails = [
-            'message' => $exception->getMessage(),
-            'code' => $exception->getCode(),
-            'file' => $exception->getFile(),
-            'line' => $exception->getLine(),
-            'query' => $query,
-            'params' => $params,
-            'stackTrace' => $exception->getTraceAsString()
-        ];
-        error_log(json_encode($errorDetails));
+            // Prepare the SQL statement to check for the table
+            $sql = "SHOW TABLES LIKE '$tableName'";  // Direct inclusion of the table name, use with caution
+            $stmt = $connection->query($sql);
+            $result = $stmt->fetchAll();
 
-        // Print or return a clean, simple error message for immediate viewing
-        echo $errorMessage;
-        // Optionally store or display this message in a user-friendly environment
+            if (empty($result)) {
+                // Table does not exist
+                return "<strong>No such table:</strong><br> The table '$tableName' does not exist in the database '$databaseName'.<br>";
+            } else {
+                // Table exists
+                return "<strong>Table found:</strong><br> The table '$tableName' exists in the database '$databaseName'.<br>";
+            }
+        } catch (PDOException $e) {
+            // Handle potential errors in a real-world scenario appropriately
+            return "<strong>Database error:</strong> " . $e->getMessage() . "<br>";
+        } catch (InvalidArgumentException $e) {
+            // Handle invalid table names
+            return "<strong>Input error:</strong> " . $e->getMessage() . "<br>";
+        }
     }
-
-
-
-    public function logError($errorDetails)
-    {
-        // Implement logging mechanism here (e.g., write to a log file or send to a logging service)
-        error_log(json_encode($errorDetails));
-    }
-
 
 
     /**

@@ -346,38 +346,28 @@ $router->enforceParameters('/premium/update/user/:id/:premium_status', 'PUT', [
     'username' => 'body',
     'email' => 'body'
 ]);
+
 $router->addDocumentation('/premium/update/user/:id/:premium_status', 'PUT', 'Updates the premium status of a user, ensuring user data consistency.');
-
-$router->add('/premium/create', 'PremiumController@createPremiumUser', 'POST');
-$router->enforceParameters('/premium/create', 'POST', [
-    'user_id' => 'body', 
-    'username' => 'body', 
-    'email' => 'body', 
-    'steam_id' => 'body', 
-    'premium_status' => 'body'
-]);
-$router->addDocumentation('/premium/create', 'POST', 'Adds a user to the premium list with additional user data validations.');
-
-$router->add('/premium/remove/:user_id', 'PremiumController@removePremiumUser', 'DELETE');
-$router->addDocumentation('/premium/remove/:user_id', 'DELETE', 'Removes a user from the premium list based on the user ID provided in the URL path.');
 
 $router->add('/premium/status/:user_id', 'PremiumController@checkPremiumStatus', 'GET');
 $router->addDocumentation('/premium/status/:user_id', 'GET', 'Checks if a user is a premium member.');
-
-$router->addDocumentation('/premium/status/:user_id', 'GET', 'Checks if a user is a premium member.');
+$router->enforceParameters('/premium/update/user/:id/:premium_status', 'PUT', [
+    'steam_id' => 'body',
+    'username' => 'body',
+    'email' => 'body'
+]);
 
 $router->add('/premium/all', 'PremiumController@listAllPremiumUsers', 'GET');
 $router->addDocumentation('/premium/all', 'GET', 'Retrieves a list of all premium users.');
 
+// Add the route for checking if a user exists in the server
+$router->add('/premium/exists/:user_id', 'PremiumController@checkUserExistsInServer', 'GET');
+$router->addDocumentation('/premium/exists/:user_id', 'GET', 'Checks if a user exists in the server and has a linked Steam ID.');
 
 // if the user is authenticated, use that instance of the Router class and dispatch the incoming request
 
 //dispatch router since authentication and global variables are set!
 $router->dispatch($GLOBALS['url_loc'], $dbManager, DEVMODE);
-
-
-
-
 
 // unset token to prevent accidental use
 // TODO find the other two easter egss left haha

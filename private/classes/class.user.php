@@ -38,6 +38,38 @@ class User
         }
     }
 
+
+    public function getUsersBySteamIds($premiumUsers) {
+        if (empty($premiumUsers)) {
+            return [];
+        }
+
+        // Extract the SteamIDs from the premium users array
+        $steamIds = array_column($premiumUsers, 'SteamID');
+
+        // Prepare the query to fetch user information based on SteamIDs
+        $placeholders = str_repeat('?,', count($steamIds) - 1) . '?';
+        $query = "SELECT u.id AS userid, p.username, p.steam_id_64 AS steamid, p.avatar, u.admin, u.verified, u.updatedAt
+                  FROM users u 
+                  JOIN profiles p ON u.id = p.user_id 
+                  WHERE p.steam_id_64 IN ($placeholders)";
+
+        $results = $this->dbObject->query($query, $steamIds);
+
+        // Merge the lastConnected information with the user data
+        foreach ($results as &$result) {
+            foreach ($premiumUsers as $premiumUser) {
+                if ($result['steamid'] === $premiumUser['SteamID']) {
+                    $result['lastConnected'] = $premiumUser['lastConnected'];
+                    break;
+                }
+            }
+        }
+
+        return $results ? $results : [];
+    }
+
+
     /**
      * Checks if a given user ID has a linked Steam account.
      *
