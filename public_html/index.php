@@ -2,6 +2,7 @@
 require_once ("/usr/www/igfastdl/imperfectgamers-api/private/constants/localization_manager.php");
 require_once ("/usr/www/igfastdl/imperfectgamers-api/private/classes/class.localizationCache.php");
 
+
 // Create a cache instance
 $cache = new LocalizationCache();
 
@@ -133,7 +134,7 @@ $result = authenticate_user($token, $dbManager->getConnection());
 // get an instance of the Devmode class
 $GLOBALS['config']['devmode'] = DEVMODE;
 
-$isLoggedIn = (DEVMODE === true && loggedIn === true) ? true : ($result['status'] === 'error' ? false : true);
+$isLoggedIn = ($result['status'] === 'error' ? false : true);
 
 $GLOBALS['token'] = $result['token'];
 
@@ -141,17 +142,17 @@ if ($isLoggedIn) {
     // set user ID and token in global variable
     $GLOBALS['user_id'] = $result['user_id'];
     $GLOBALS['logged_in'] = true;
-$token = $result['token'];
+    $token = $result['token'];
     // at this point we have our user_id and can set global data
     include_once (PRIVATE_FOLDER . '/data/user.php');
 }
 
-// Check if we're in devmode
-if (DEVMODE == 1) {
+// Check if we're in devmode and authenticated
+if (DEVMODE == 1 && $isLoggedIn) {
     include (PRIVATE_FOLDER . '/frontend/devmode.php');
     if (DEVMODE && $GLOBALS['config']['testmode']) {
         // Run testing script
-        
+
         include_once (PRIVATE_FOLDER . '/tests/tests.php');
 
 
@@ -340,29 +341,34 @@ $router->addDocumentation('/user/updateCheckoutDetails', 'POST', 'Updates the ba
 
 // Premium user management
 
-$router->add('/premium/update/user/:id/:premium_status', 'PremiumController@updatePremiumUser', 'PUT');
-$router->enforceParameters('/premium/update/user/:id/:premium_status', 'PUT', [
-    'steam_id' => 'body',
-    'username' => 'body',
-    'email' => 'body'
-]);
+// todo: throw error if additional parameter doesnt match controler variable name... we only throw for first
+// todo: throw error if parameterized route is already taken
+// todo: throw proper error for when route with enforced parameters does not receive expected input
 
-$router->addDocumentation('/premium/update/user/:id/:premium_status', 'PUT', 'Updates the premium status of a user, ensuring user data consistency.');
+// Ensure the constant is defined
+if (!defined('IMPERFECT_HOST_SECRET')) {
+    define('IMPERFECT_HOST_SECRET', $imperfect_host_webhook_key);
+}
+
+if(hash_equals(hash_hmac('sha256', file_get_contents('php://input'), IMPERFECT_HOST_SECRET), getallheaders()['X-Signature'] ?? '')){
+    $router->add('/premium/update/user/:userId/:premiumStatus', 'PremiumController@updatePremiumUser', 'PUT');
+    $router->enforceParameters('/premium/update/user/:userId/:premiumStatus', 'PUT', [
+        'steam_id' => 'body',
+        'username' => 'body',
+        'email' => 'body'
+    ]);
+    $router->addDocumentation('/premium/update/user/:userId/:premiumStatus', 'PUT', 'Updates the premium status of a user, ensuring user data consistency.');
+}
 
 $router->add('/premium/status/:user_id', 'PremiumController@checkPremiumStatus', 'GET');
 $router->addDocumentation('/premium/status/:user_id', 'GET', 'Checks if a user is a premium member.');
-$router->enforceParameters('/premium/update/user/:id/:premium_status', 'PUT', [
-    'steam_id' => 'body',
-    'username' => 'body',
-    'email' => 'body'
-]);
 
 $router->add('/premium/all', 'PremiumController@listAllPremiumUsers', 'GET');
 $router->addDocumentation('/premium/all', 'GET', 'Retrieves a list of all premium users.');
 
 // Add the route for checking if a user exists in the server
-$router->add('/premium/exists/:user_id', 'PremiumController@checkUserExistsInServer', 'GET');
-$router->addDocumentation('/premium/exists/:user_id', 'GET', 'Checks if a user exists in the server and has a linked Steam ID.');
+$router->add('/premium/exists/:userId', 'PremiumController@checkUserExistsInServer', 'GET');
+$router->addDocumentation('/premium/exists/:userId', 'GET', 'Checks if a user exists in the server and has a linked Steam ID.');
 
 // if the user is authenticated, use that instance of the Router class and dispatch the incoming request
 

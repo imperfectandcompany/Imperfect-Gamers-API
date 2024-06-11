@@ -91,6 +91,10 @@ define('GS_DB_CHARSET', 'utf8mb4');
 // Dev Mode Token 
 define('DEV_MODE_TOKEN', '79fcd438ff5baced3fea7c1c2dacf8f99b9596318a374f2ff0340010d555eb9a1e677b3798b4a903035ed218cff1dce4c5b1bb3c74235e111f80d1acc83d0751');
 
+
+// Imperfect Host Webhook token
+define('IMPERFECT_HOST_SECRET', $imperfect_host_webhook_key);
+
 define('baseDirectory', '/usr/www/igfastdl/imperfectgamers-api');
 define('SteamAPIKey', '52A66B13219F645834149F1A1180770A');
 
@@ -106,7 +110,7 @@ define('SteamAPIKey', '52A66B13219F645834149F1A1180770A');
 $allowedIPs = $debug_IPs; // Add your IP address here
 
 $config = [
-    'DEVMODE' => true, // Enable dev mode
+    'DEVMODE' => false, // Enable dev mode
     'loggedIn' => true, // Switch between loggedin and loggedout 
     'TESTMODE' => true // requires DEVMODE to be true
 ];

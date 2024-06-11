@@ -27,7 +27,7 @@ class UserController
             if (!isset($postBody->{$field}) || empty($postBody->{$field})) {
                 throwError("Error: " . ucfirst($field) . " field is required");
                 http_response_code(ERROR_BAD_REQUEST);
-                sendResponse('error', ['message' => ucfirst($field) . ' field is required'], 400);
+                ResponseHandler::sendResponse('error', ['message' => ucfirst($field) . ' field is required'], 400);
                 exit;
             }
         }
@@ -49,13 +49,13 @@ class UserController
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = "Invalid email format";
-            sendResponse('error', ['message' => $error], ERROR_INVALID_INPUT);
+            ResponseHandler::sendResponse('error', ['message' => $error], ERROR_INVALID_INPUT);
             exit;
         }
 
         if (strlen($password) < 6) {
             $error = "Password must be at least 6 characters";
-            sendResponse('error', ['message' => $error], ERROR_INVALID_INPUT);
+            ResponseHandler::sendResponse('error', ['message' => $error], ERROR_INVALID_INPUT);
             exit;
         }
 
@@ -64,7 +64,7 @@ class UserController
         $result = $user->getUserByEmail($email);
         if ($result) {
             $error = "Email already exists";
-            sendResponse('error', ['message' => $error], ERROR_USER_ALREADY_EXISTS);
+            ResponseHandler::sendResponse('error', ['message' => $error], ERROR_USER_ALREADY_EXISTS);
             exit;
         }
 
@@ -72,11 +72,11 @@ class UserController
         $newUser = $user->createUser($email, $password);
 
         if ($newUser) {
-            sendResponse('success', ['message' => 'Account registered'], SUCCESS_OK);
+            ResponseHandler::sendResponse('success', ['message' => 'Account registered'], SUCCESS_OK);
             exit();
         } else {
             $error = "Unable to register account";
-            sendResponse('success', ['error' => $error], ERROR_INTERNAL_SERVER);
+            ResponseHandler::sendResponse('success', ['error' => $error], ERROR_INTERNAL_SERVER);
             exit();
         }
     }
@@ -126,7 +126,7 @@ class UserController
                     throwWarning('Username not found');
                     $this->logger->log(0, 'authentication_failed', 'User not found');
                     // Return an error if the user cannot be found
-                    sendResponse('error', ['message' => "User not found'."], ERROR_NOT_FOUND);
+                    ResponseHandler::sendResponse('error', ['message' => "User not found'."], ERROR_NOT_FOUND);
                     return false;
                 }
             }
@@ -151,24 +151,24 @@ class UserController
 
                         if (!$token) {
                             // Return an error if the password is incorrect
-                            sendResponse('error', ['message' => "Token could not be saved."], ERROR_INTERNAL_SERVER);
+                            ResponseHandler::sendResponse('error', ['message' => "Token could not be saved."], ERROR_INTERNAL_SERVER);
                             $this->logger->log($uid, 'token_save_fail', $token);
                             http_response_code(ERROR_UNAUTHORIZED);
                             return false;
                         }
                         // Return the token to the client
-                        sendResponse('success', ['token' => $token, 'uid' => $uid], SUCCESS_OK);
+                        ResponseHandler::sendResponse('success', ['token' => $token, 'uid' => $uid], SUCCESS_OK);
                         $this->logger->log($uid, 'token_save_success', $token);
                         $this->logger->log($uid, 'authentication_end', 'User authenticated successfully');
                         return true;
                     } else {
                         throwError('Device not associated with login');
-                        sendResponse('error', ['message' => "Device of user could not be associated with login."], ERROR_INTERNAL_SERVER);
+                        ResponseHandler::sendResponse('error', ['message' => "Device of user could not be associated with login."], ERROR_INTERNAL_SERVER);
                         return false;
                     }
                 } else {
                     throwError('Device not saved');
-                    sendResponse('error', ['message' => "Device of user could not be saved."], ERROR_INTERNAL_SERVER);
+                    ResponseHandler::sendResponse('error', ['message' => "Device of user could not be saved."], ERROR_INTERNAL_SERVER);
                     $this->logger->log($uid, 'device_login_save_fail', $device->getDeviceInfo());
                     return false;
                 }
@@ -182,14 +182,14 @@ class UserController
 
                 // It was an invalid password but we don't want to confirm or deny info just in case it was an opp
                 // loool im dead, forgot i wrote this. we the oppa stoppas
-                sendResponse('error', ['message' => "Invalid Username or Password."], ERROR_UNAUTHORIZED);
+                ResponseHandler::sendResponse('error', ['message' => "Invalid Username or Password."], ERROR_UNAUTHORIZED);
                 return false;
             }
         } catch (Exception $e) {
             // Handle unexpected exceptions and log them
             $this->logger->log(0, 'authentication_error', ['error_message' => $e->getMessage()]);
             // Return an error response
-            sendResponse('error', ['message' => "An unexpected error occurred."], ERROR_INTERNAL_SERVER);
+            ResponseHandler::sendResponse('error', ['message' => "An unexpected error occurred."], ERROR_INTERNAL_SERVER);
             return false;
         }
     }
@@ -200,7 +200,7 @@ class UserController
     public function fetchCheckoutDetails()
     {
         if (!isset($GLOBALS['user_id'])) {
-            sendResponse('error', ['message' => 'User is not logged in.'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'User is not logged in.'], 400);
             return;
         }
 
@@ -218,19 +218,19 @@ class UserController
             });
 
             if (!empty($filteredResults)) {
-                sendResponse('success', ['data' => $filteredResults], 200);
+                ResponseHandler::sendResponse('success', ['data' => $filteredResults], 200);
             } else {
-                sendResponse('success', ['message' => 'No relevant details found'], 200);
+                ResponseHandler::sendResponse('success', ['message' => 'No relevant details found'], 200);
             }
         } else {
-            sendResponse('error', ['message' => 'Details not found'], 404);
+            ResponseHandler::sendResponse('error', ['message' => 'Details not found'], 404);
         }
     }
 
     public function updateCheckoutDetails()
     {
         if (!isset($GLOBALS['user_id'])) {
-            sendResponse('error', ['message' => 'User is not logged in.'], 401);
+            ResponseHandler::sendResponse('error', ['message' => 'User is not logged in.'], 401);
             return;
         }
 
@@ -241,7 +241,7 @@ class UserController
 
 
         if (!isset($input['basket_id']) || !isset($input['package_id']) || !isset($input['checkout_url'])) {
-            sendResponse('error', ['message' => 'Missing required parameters.'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'Missing required parameters.'], 400);
             return;
         }
 
@@ -259,12 +259,12 @@ class UserController
             $result = $user->updateCheckoutDetails($userId, $basketId, $packageId, $checkoutUrl);
 
             if ($result) {
-                sendResponse('success', ['message' => 'Checkout details updated successfully.'], 200);
+                ResponseHandler::sendResponse('success', ['message' => 'Checkout details updated successfully.'], 200);
             } else {
-                sendResponse('error', ['message' => 'Failed to update checkout details.'], 500);
+                ResponseHandler::sendResponse('error', ['message' => 'Failed to update checkout details.'], 500);
             }
         } catch (Exception $e) {
-            sendResponse('error', ['message' => $e->getMessage()], 400);
+            ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 400);
         }
     }
 
@@ -294,10 +294,10 @@ class UserController
             $this->logger->log($userId, 'user_logout_success', ['deviceId' => $deviceId, 'message' => 'User and device successfully logged out.']);
 
             // Return success response
-            sendResponse('success', ['message' => 'Successfully logged out.'], 200); // HTTP 200 OK
+            ResponseHandler::sendResponse('success', ['message' => 'Successfully logged out.'], 200); // HTTP 200 OK
         } catch (Exception $e) {
             $this->logger->log($userId, 'logout_error', ['error_message' => $e->getMessage(), 'token' => sha1($token)]);
-            sendResponse('error', ['message' => 'Logout failed. Please try again.'], 500); // HTTP 500 Internal Server Error
+            ResponseHandler::sendResponse('error', ['message' => 'Logout failed. Please try again.'], 500); // HTTP 500 Internal Server Error
         }
     }
 
@@ -321,7 +321,7 @@ class UserController
     public function checkSteamLink()
     {
         if (!isset($GLOBALS['user_id'])) {
-            sendResponse('error', ['message' => 'User ID is not set.'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'User ID is not set.'], 400);
             return;
         }
 
@@ -332,13 +332,13 @@ class UserController
             $result = $user->hasSteam($userId);
 
             if ($result['hasSteam']) {
-                sendResponse('success', $result, 200);
+                ResponseHandler::sendResponse('success', $result, 200);
             } else {
-                sendResponse('success', ['hasSteam' => false], 200);
+                ResponseHandler::sendResponse('success', ['hasSteam' => false], 200);
             }
         } catch (Exception $e) {
             $this->logger->log($userId, 'checkSteamLink_error', ['error_message' => $e->getMessage()]);
-            sendResponse('error', ['message' => $e->getMessage()], 500);
+            ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
         }
     }
 
@@ -353,7 +353,7 @@ class UserController
     public function linkSteamAccount()
     {
         if (!isset($GLOBALS['user_id'])) {
-            sendResponse('error', ['message' => 'User ID is not set.'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'User ID is not set.'], 400);
             return;
         }
 
@@ -367,7 +367,7 @@ class UserController
 
 
         if (!$postBody->steamId64) {
-            sendResponse('error', ['message' => 'Steam ID missing.'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'Steam ID missing.'], 400);
             return;
         }
 
@@ -380,12 +380,12 @@ class UserController
 
             $updateResult = $user->linkSteamAccount($user_id, $steam_id_64);
             if ($updateResult) {
-                sendResponse('success', ['message' => 'Steam account linked successfully'], 200);
+                ResponseHandler::sendResponse('success', ['message' => 'Steam account linked successfully'], 200);
             } else {
-                sendResponse('error', ['message' => 'Failed to link Steam account'], 500);
+                ResponseHandler::sendResponse('error', ['message' => 'Failed to link Steam account'], 500);
             }
         } catch (Exception $e) {
-            sendResponse('error', ['message' => $e->getMessage()], 400);
+            ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 400);
         }
     }
 
@@ -397,7 +397,7 @@ class UserController
     public function unlinkSteamAccount()
     {
         if (!isset($GLOBALS['user_id'])) {
-            sendResponse('error', ['message' => 'User is not logged in.'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'User is not logged in.'], 400);
             return;
         }
 
@@ -409,12 +409,12 @@ class UserController
 
             $unlinkResult = $user->unlinkSteamAccount($userId);
             if ($unlinkResult) {
-                sendResponse('success', ['message' => 'Steam account unlinked successfully'], 200);
+                ResponseHandler::sendResponse('success', ['message' => 'Steam account unlinked successfully'], 200);
             } else {
-                sendResponse('error', ['message' => 'Failed to unlink Steam account'], 500);
+                ResponseHandler::sendResponse('error', ['message' => 'Failed to unlink Steam account'], 500);
             }
         } catch (Exception $e) {
-            sendResponse('error', ['message' => $e->getMessage()], 400);
+            ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 400);
         }
     }
 
@@ -447,7 +447,7 @@ class UserController
         // Check if the user_id is defined in the global scope
         if (!isset($GLOBALS['user_id'])) {
             // If not, respond with an appropriate message and status code
-            sendResponse('error', array('message' => 'User ID is not set.'), 400); // 400 Bad Request seems appropriate
+            ResponseHandler::sendResponse('error', array('message' => 'User ID is not set.'), 400); // 400 Bad Request seems appropriate
             return; // Stop execution of the function
         }
 
@@ -463,15 +463,15 @@ class UserController
             // Check if a Steam ID was found
             if (!empty($result) && isset($result[0]['steam_id_64'])) {
                 // User has a Steam account linked
-                sendResponse('success', array('hasSteam' => true, 'steamId' => $result[0]['steam_id_64']), 200);
+                ResponseHandler::sendResponse('success', array('hasSteam' => true, 'steamId' => $result[0]['steam_id_64']), 200);
             } else {
                 // User does not have a Steam account linked
-                sendResponse('success', array('hasSteam' => false), 200);
+                ResponseHandler::sendResponse('success', array('hasSteam' => false), 200);
             }
         } catch (Exception $e) {
             // Log error or handle exception
             $this->logger->log($userId, 'hasSteam_error', ['error_message' => $e->getMessage()]);
-            sendResponse('error', array('message' => 'An unexpected error occurred.'), 500);
+            ResponseHandler::sendResponse('error', array('message' => 'An unexpected error occurred.'), 500);
         }
     }
 
@@ -487,7 +487,7 @@ class UserController
     {
         // Check if the user_id is defined in the global scope
         if (!isset($GLOBALS['user_id'])) {
-            sendResponse('error', ['message' => 'User ID is not set.'], 400); // 400 Bad Request
+            ResponseHandler::sendResponse('error', ['message' => 'User ID is not set.'], 400); // 400 Bad Request
             return;
         }
 
@@ -502,13 +502,13 @@ class UserController
 
             // Check if a username was found and return it, or false if not found
             if (!empty($result) && isset($result[0]['username'])) {
-                sendResponse('success', array('onboarded' => true, 'username' => $result[0]['username']), 200);
+                ResponseHandler::sendResponse('success', array('onboarded' => true, 'username' => $result[0]['username']), 200);
             } else {
-                sendResponse('success', array('onboarded' => false), 404);
+                ResponseHandler::sendResponse('success', array('onboarded' => false), 404);
             }
         } catch (Exception $e) {
             $this->logger->log($userId, 'getUsernameById_error', ['error_message' => $e->getMessage()]);
-            sendResponse('error', ['message' => 'An unexpected error occurred.'], 500); // 500 Internal Server Error
+            ResponseHandler::sendResponse('error', ['message' => 'An unexpected error occurred.'], 500); // 500 Internal Server Error
         }
     }
 
@@ -524,35 +524,35 @@ class UserController
         $newUsername = $postBody->username ?? '';
 
         if (empty($newUsername)) {
-            sendResponse('error', ['message' => 'Username is required.'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'Username is required.'], 400);
             return;
         }
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $newUsername)) {
-            sendResponse('error', ['message' => 'Username can only contain letters, numbers, and underscores.'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'Username can only contain letters, numbers, and underscores.'], 400);
             return;
         }
         if (!empty($newUsername)) {
             if ($newUsername === $currentUsername) {
-                sendResponse('error', ['message' => 'New username is the same as the current username.'], 400);
+                ResponseHandler::sendResponse('error', ['message' => 'New username is the same as the current username.'], 400);
                 return;
             }
         }
 
         if (strlen($newUsername) < 3) {
             $this->logger->log($userId, 'username_too_short', ['username' => $newUsername]);
-            sendResponse('error', ['message' => 'Username is too short. Must be at least 3 characters.'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'Username is too short. Must be at least 3 characters.'], 400);
             return;
         }
 
         if (strlen($newUsername) > 20) {
             $this->logger->log($userId, 'username_too_long', ['username' => $newUsername]);
-            sendResponse('error', ['message' => 'Username is too long. Must not exceed 20 characters.'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'Username is too long. Must not exceed 20 characters.'], 400);
             return;
         }
 
         if (!$userId) {
             $this->logger->log(0, 'user_not_authenticated', ['attempted_username' => $newUsername]);
-            sendResponse('error', ['message' => 'Client not authenticated'], 401);
+            ResponseHandler::sendResponse('error', ['message' => 'Client not authenticated'], 401);
             return;
         }
 
@@ -565,30 +565,30 @@ class UserController
                 $usernameChanged = $user->changeUsernameFromUid($userId, $newUsername);
                 if ($usernameChanged) {
                     $this->logger->log($userId, 'username_update_success', ['from' => $currentUsername, 'to' => $newUsername]);
-                    sendResponse('success', ['message' => 'Username updated successfully from ' . $currentUsername . ' to ' . $newUsername], 200);
+                    ResponseHandler::sendResponse('success', ['message' => 'Username updated successfully from ' . $currentUsername . ' to ' . $newUsername], 200);
                 } else {
                     throw new Exception('Update operation failed, no rows affected.');
                 }
             } catch (Exception $e) {
                 $this->logger->log($userId, 'username_update_failed', ['error' => $e->getMessage()]);
-                sendResponse('error', ['message' => $e->getMessage()], 400);
+                ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 400);
             }
         } elseif (empty($currentUsername)) {
             try {
                 $usernameAdded = $user->addUsernameFromUid($userId, $newUsername);
                 if ($usernameAdded) {
                     $this->logger->log($userId, 'username_add_success', ['username' => $newUsername]);
-                    sendResponse('success', ['message' => 'Username "' . $newUsername . '" added successfully'], 200);
+                    ResponseHandler::sendResponse('success', ['message' => 'Username "' . $newUsername . '" added successfully'], 200);
                 } else {
                     throw new Exception('Failed to add username despite no conflicts.');
                 }
             } catch (Exception $e) {
                 $this->logger->log($userId, 'username_add_failed', ['error' => $e->getMessage()]);
-                sendResponse('error', ['message' => $e->getMessage()], 400);
+                ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 400);
             }
         } else {
             $this->logger->log($userId, 'username_change_no_action', ['reason' => 'Username unchanged']);
-            sendResponse('error', ['message' => 'New username is the same as the current username.'], 400);
+            ResponseHandler::sendResponse('error', ['message' => 'New username is the same as the current username.'], 400);
         }
     }
 
@@ -609,16 +609,16 @@ class UserController
 
         // Return the result
         if ($exists) {
-            sendResponse('success', array('exists' => true), 200);
+            ResponseHandler::sendResponse('success', array('exists' => true), 200);
         } else {
-            sendResponse('success', array('exists' => false), 200);
+            ResponseHandler::sendResponse('success', array('exists' => false), 200);
         }
     }
 
     public function verifyToken()
     {
         // Assuming the token is already validated before reaching this function
-        sendResponse('success', array('uid' => $GLOBALS['user_id']), 200);
+        ResponseHandler::sendResponse('success', array('uid' => $GLOBALS['user_id']), 200);
     }
 
     public function logoutAll()

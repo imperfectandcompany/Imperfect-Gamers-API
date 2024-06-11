@@ -78,11 +78,11 @@ class PremiumController
         }
     }
 
+
     public function updatePremiumUser(int $userId, bool $premiumStatus)
     {
         // Parse the request body for JSON input
         $putBody = json_decode(static::getInputStream(), true);
-
 
         $missingFields = $this->validateInputFields(['username', 'email', 'steam_id'], $putBody);
 
@@ -127,7 +127,8 @@ class PremiumController
     }
 
 
-    public function checkUserExistsInServer($userId) {
+    public function checkUserExistsInServer(int $userId) {
+
             if (!$userId) {
                 $this->logger->log(0, 'invalid_user_id', ['userId' => $userId]);
                 return ResponseHandler::sendResponse('error', ['message' => 'Invalid user ID provided'], 400);
