@@ -38,6 +38,38 @@ class User
         }
     }
 
+
+    public function getUsersBySteamIds($premiumUsers) {
+        if (empty($premiumUsers)) {
+            return [];
+        }
+
+        // Extract the SteamIDs from the premium users array
+        $steamIds = array_column($premiumUsers, 'SteamID');
+
+        // Prepare the query to fetch user information based on SteamIDs
+        $placeholders = str_repeat('?,', count($steamIds) - 1) . '?';
+        $query = "SELECT u.id AS userid, p.username, p.steam_id_64 AS steamid, p.avatar, u.admin, u.verified, u.updatedAt
+                  FROM users u 
+                  JOIN profiles p ON u.id = p.user_id 
+                  WHERE p.steam_id_64 IN ($placeholders)";
+
+        $results = $this->dbObject->query($query, $steamIds);
+
+        // Merge the lastConnected information with the user data
+        foreach ($results as &$result) {
+            foreach ($premiumUsers as $premiumUser) {
+                if ($result['steamid'] === $premiumUser['SteamID']) {
+                    $result['lastConnected'] = $premiumUser['lastConnected'];
+                    break;
+                }
+            }
+        }
+
+        return $results ? $results : [];
+    }
+
+
     /**
      * Checks if a given user ID has a linked Steam account.
      *
@@ -111,6 +143,27 @@ class User
         }
     }
 
+    public function updateCheckoutDetails($userId, $basketId, $packageId, $checkoutUrl)
+    {
+        $params = makeFilterParams([$basketId, $packageId, $checkoutUrl, $userId]);
+        try {
+            $updateResult = $this->dbObject->updateData(
+                "profiles",
+                "basket_id = :basket_id, package_id = :package_id, checkout_url = :checkout_url",
+                "user_id = :user_id",
+                $params
+            );
+
+            if ($updateResult) {
+                return true;
+            } else {
+                throw new Exception("Failed to update profile with initialized store data. Ensure common data integrity points and try again.");
+            }
+        } catch (Exception $e) {
+            // Consider checking the reason for failure: was it a database connection issue, or were no rows affected?
+            throw new PDOException('Failed to update profile: ' . $e->getMessage());
+        }
+    }
 
     /**
      * Unlinks a Steam account from a user's profile.

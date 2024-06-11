@@ -38,7 +38,7 @@ function display_feedback($messages = null)
 
             }
             extract(array("feedback" => $messages[$key]));
-            require($GLOBALS['config']['private_folder'] . '/templates/tmp_feedback.php');
+            require ($GLOBALS['config']['private_folder'] . '/templates/tmp_feedback.php');
         }
     }
 }
@@ -59,7 +59,7 @@ function trimSlash($file)
 function isTest()
 {
     // Return true if testmode is explicitly set to true
-    if (isset($GLOBALS['config']['testmode']) && $GLOBALS['config']['testmode'] === true) {
+    if ($GLOBALS['config']['devmode'] && isset($GLOBALS['config']['testmode']) && $GLOBALS['config']['testmode'] === true) {
         return true;
     } else {
         return false;
@@ -72,7 +72,7 @@ function throwWarning($message)
     $caller = array_shift($bt);
     $file = $caller['file'];
     $line = $caller['line'];
-    $message = $message . " - Thrown in file " . trimSlash($file) . " on line " . $line;
+    $message = $message . "<br><br><strong>Thrown in file " . trimSlash($file) . " on line " . $line . "</strong>";
     if (isTest()) {
         global $currentTest;
         $GLOBALS['logs'][$currentTest]["warning"][] = $message;  // Store the message with the test name        
@@ -112,18 +112,25 @@ function throwSuccess($message)
     }
 }
 
-function sendResponse($status, $data, $httpCode)
-{
-    if ($GLOBALS['config']['testmode'] !== 1) {
-        echo json_response(['status' => $status] + $data, $httpCode);
-        $GLOBALS['messages'][$status][] = $data && isset($data['message']) ? $data['message'] : null;
-    } else {
-        global $currentTest;
-        if ($data && isset($data['message'])) {
-            $GLOBALS['logs'][$currentTest][$status][] = $data['message'];  // Store the message with the test name
-        }
-    }
-}
+// function ResponseHandler::sendResponse($status, $data, $httpCode)
+// {
+//     if (!isTest()) {
+//         echo json_response(['status' => $status] + $data, $httpCode);
+//         $GLOBALS['messages'][$status][] = $data && isset($data['message']) ? $data['message'] : null;
+//     } else {
+//         global $currentTest;
+//         if ($data && isset($data['message'])) {
+//             $GLOBALS['logs'][$currentTest][$status][] = $data['message'];  // Store the message with the test name
+//         }
+//         // During tests, directly return the response for assertion
+//         return ['status' => $status, 'data' => $data, 'httpCode' => $httpCode];
+//     }
+//     if ($GLOBALS['config']['devmode']) {
+//         return;
+//     } else {
+//         exit();
+//     }
+// }
 
 
 /**
@@ -136,7 +143,7 @@ function checkInputFields($inputFields, $postBody)
     foreach ($inputFields as $field) {
         if (!isset($postBody->{$field}) || empty($postBody->{$field})) {
             $error = "Error: " . ucfirst($field) . " field is required";
-            sendResponse('error', ['message' => $error], ERROR_INVALID_INPUT);
+            ResponseHandler::sendResponse('error', ['message' => $error], ERROR_INVALID_INPUT);
             $returnFlag = false;
         }
     }
@@ -145,7 +152,8 @@ function checkInputFields($inputFields, $postBody)
 
 
 // Function to check if the request is from an allowed domain
-function isRequestAllowed($allowedDomain) {
+function isRequestAllowed($allowedDomain)
+{
     $originAllowed = false;
     $refererAllowed = false;
 

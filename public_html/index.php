@@ -78,6 +78,7 @@ $GLOBALS['messages']['test'] = array(); //Main array for all status messages
 
 // includes
 include ($GLOBALS['config']['private_folder'] . '/functions/functions.general.php');
+include ($GLOBALS['config']['private_folder'] . '/classes/class.ResponseHandler.php');
 include ($GLOBALS['config']['private_folder'] . '/functions/functions.json.php');
 include ($GLOBALS['config']['private_folder'] . '/functions/functions.database.php');
 
@@ -132,6 +133,32 @@ $result = authenticate_user($token, $dbManager->getConnection());
 // get an instance of the Devmode class
 $GLOBALS['config']['devmode'] = DEVMODE;
 
+$isLoggedIn = (DEVMODE === true && loggedIn === true) ? true : ($result['status'] === 'error' ? false : true);
+
+$GLOBALS['token'] = $result['token'];
+
+if ($isLoggedIn) {
+    // set user ID and token in global variable
+    $GLOBALS['user_id'] = $result['user_id'];
+    $GLOBALS['logged_in'] = true;
+$token = $result['token'];
+    // at this point we have our user_id and can set global data
+    include_once (PRIVATE_FOLDER . '/data/user.php');
+}
+
+// Check if we're in devmode
+if (DEVMODE == 1) {
+    include (PRIVATE_FOLDER . '/frontend/devmode.php');
+    if (DEVMODE && $GLOBALS['config']['testmode']) {
+        // Run testing script
+        
+        include_once (PRIVATE_FOLDER . '/tests/tests.php');
+
+
+        $GLOBALS['config']['testmode'] = 0; //This disables testing
+
+    }
+}
 
 
 // // Create a cache instance
@@ -160,8 +187,6 @@ $router = new Router();
 // create a new instance for unauthenticated routes from router class
 $notAuthenticatedRouter = new Router();
 
-// If dev mode is enabled and loggedIn is true, set $isLoggedIn for this page to true otherwise check if the token / login result status is not error
-DEVMODE === true && loggedIn === true ? $isLoggedIn = true : $isLoggedIn = $result['status'] === 'error' ? false : true;
 $echo = $isLoggedIn ? "Logged in" : "Not logged in";
 // Determine which router to add routes to
 $mutualRoute = $isLoggedIn ? $router : $notAuthenticatedRouter;
@@ -261,7 +286,7 @@ if (DEVMODE == 1) {
 $routes = $notAuthenticatedRouter->getRoutes();
 
 // handle case where user is not authenticated
-if ($result['status'] === 'error') {
+if (!$isLoggedIn) {
 
     // add the non-authenticated routes to the router
     $notAuthenticatedRouter->add('/register', 'UserController@register', 'POST');
@@ -280,9 +305,7 @@ if ($result['status'] === 'error') {
 
     // dispatch the request to the appropriate controller
     $notAuthenticatedRouter->dispatch($GLOBALS['url_loc'], $dbManager, 1);
-    if (DEVMODE == 1) {
-        include (PRIVATE_FOLDER . '/frontend/devmode.php');
-    }
+
     exit();
 }
 
@@ -309,33 +332,42 @@ $router->addDocumentation('/user/checkUsernameExistence', 'POST', 'Checks if the
 $router->add('/user/changeusername', 'UserController@changeUsername', 'POST');
 $router->addDocumentation('/user/changeusername', 'POST', 'Changes the username of the user.');
 
+$router->add('/user/fetchCheckoutDetails', 'UserController@fetchCheckoutDetails', 'GET');
+$router->addDocumentation('/user/fetchCheckoutDetails', 'GET', 'Fetches the basket, package, and checkout URL details for the logged-in user.');
 
-// set user ID and token in global variable
-$GLOBALS['user_id'] = $result['user_id'];
+$router->add('/user/updateCheckoutDetails', 'UserController@updateCheckoutDetails', 'POST');
+$router->addDocumentation('/user/updateCheckoutDetails', 'POST', 'Updates the basket, package, and checkout URL details for the logged-in user.');
 
-$GLOBALS['token'] = $result['token'];
-$token = $result['token'];
-$GLOBALS['logged_in'] = true;
+// Premium user management
 
-// at this point we have our user_id and can set global data
-include_once (PRIVATE_FOLDER . '/data/user.php');
+$router->add('/premium/update/user/:id/:premium_status', 'PremiumController@updatePremiumUser', 'PUT');
+$router->enforceParameters('/premium/update/user/:id/:premium_status', 'PUT', [
+    'steam_id' => 'body',
+    'username' => 'body',
+    'email' => 'body'
+]);
+
+$router->addDocumentation('/premium/update/user/:id/:premium_status', 'PUT', 'Updates the premium status of a user, ensuring user data consistency.');
+
+$router->add('/premium/status/:user_id', 'PremiumController@checkPremiumStatus', 'GET');
+$router->addDocumentation('/premium/status/:user_id', 'GET', 'Checks if a user is a premium member.');
+$router->enforceParameters('/premium/update/user/:id/:premium_status', 'PUT', [
+    'steam_id' => 'body',
+    'username' => 'body',
+    'email' => 'body'
+]);
+
+$router->add('/premium/all', 'PremiumController@listAllPremiumUsers', 'GET');
+$router->addDocumentation('/premium/all', 'GET', 'Retrieves a list of all premium users.');
+
+// Add the route for checking if a user exists in the server
+$router->add('/premium/exists/:user_id', 'PremiumController@checkUserExistsInServer', 'GET');
+$router->addDocumentation('/premium/exists/:user_id', 'GET', 'Checks if a user exists in the server and has a linked Steam ID.');
 
 // if the user is authenticated, use that instance of the Router class and dispatch the incoming request
 
 //dispatch router since authentication and global variables are set!
 $router->dispatch($GLOBALS['url_loc'], $dbManager, DEVMODE);
-
-
-// Check if we're in devmode
-if (DEVMODE == 1) {
-    include (PRIVATE_FOLDER . '/frontend/devmode.php');
-    if (DEVMODE && $GLOBALS['config']['testmode']) {
-        // Run testing script
-        include_once (PRIVATE_FOLDER . '/tests/tests.php');
-        $GLOBALS['config']['testmode'] = 0; //This disables testing
-    }
-}
-
 
 // unset token to prevent accidental use
 // TODO find the other two easter egss left haha

@@ -194,6 +194,80 @@ class UserController
         }
     }
 
+
+
+
+    public function fetchCheckoutDetails()
+    {
+        if (!isset($GLOBALS['user_id'])) {
+            sendResponse('error', ['message' => 'User is not logged in.'], 400);
+            return;
+        }
+
+        $userId = $GLOBALS['user_id']; // Assuming session is started and user ID is stored
+
+        // Query to fetch basket, package, and checkout details
+        $query = 'SELECT basket_id, package_id, checkout_url FROM profiles WHERE user_id = :user_id';
+        $params = array(':user_id' => $userId);
+        $results = $this->dbConnection->query($query, $params);
+
+        if ($results) {
+            // Filter out null values
+            $filteredResults = array_filter($results[0], function ($value) {
+                return !is_null($value);
+            });
+
+            if (!empty($filteredResults)) {
+                sendResponse('success', ['data' => $filteredResults], 200);
+            } else {
+                sendResponse('success', ['message' => 'No relevant details found'], 200);
+            }
+        } else {
+            sendResponse('error', ['message' => 'Details not found'], 404);
+        }
+    }
+
+    public function updateCheckoutDetails()
+    {
+        if (!isset($GLOBALS['user_id'])) {
+            sendResponse('error', ['message' => 'User is not logged in.'], 401);
+            return;
+        }
+
+        $userId = $GLOBALS['user_id']; // Assuming session is started and user ID is stored
+
+        // Get the input data
+        $input = json_decode(file_get_contents('php://input'), true);
+
+
+        if (!isset($input['basket_id']) || !isset($input['package_id']) || !isset($input['checkout_url'])) {
+            sendResponse('error', ['message' => 'Missing required parameters.'], 400);
+            return;
+        }
+
+        $basketId = $input['basket_id'];
+        $packageId = $input['package_id'];
+        $checkoutUrl = $input['checkout_url'];
+
+        $user = new User($this->dbConnection);
+        $result = $user->updateCheckoutDetails($userId, $basketId, $packageId, $checkoutUrl);
+
+        try {
+            // Instantiate the DatabaseConnector and User classes
+            $user = new User($this->dbConnection);
+            // Update the user's profile with the new details
+            $result = $user->updateCheckoutDetails($userId, $basketId, $packageId, $checkoutUrl);
+
+            if ($result) {
+                sendResponse('success', ['message' => 'Checkout details updated successfully.'], 200);
+            } else {
+                sendResponse('error', ['message' => 'Failed to update checkout details.'], 500);
+            }
+        } catch (Exception $e) {
+            sendResponse('error', ['message' => $e->getMessage()], 400);
+        }
+    }
+
     public function logout()
     {
         $userId = $GLOBALS['user_id']; // Assuming user ID is set after successful authentication

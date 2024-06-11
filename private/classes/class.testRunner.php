@@ -1,4 +1,7 @@
 <?php
+
+// classes/class.testRunner.php
+
 class TestRunner
 {
     private $controllers;
@@ -18,7 +21,7 @@ class TestRunner
     }
 
     public function runTestsForController($controller, $tests) {
-        // Assuming you iterate through the $tests array inside the runTests() method
+        // Iterate through the $tests array inside the runTests() method
         $this->controller = $controller;
         $this->runTests($tests);
     }
@@ -26,13 +29,19 @@ class TestRunner
     public function runTests($categories)
     {
         $totalCategories = count($categories);
+
+        // TODO: Investigate unused variable (can't recall and everything seems fine...)
         $totalTests = array_sum(array_map('count', $categories)); // Get the total number of tests
         $totalTestsRun = 0;
     
         foreach ($categories as $category => $testData) {
 
             // Extract the relevant controller
-            $controllerName = $testData['controller'];
+            if (isset($testData['controller'])) {
+                $controllerName = $testData['controller'];
+            } elseif (isset($testData['class'])) {
+                $controllerName = $testData['class'];
+            }
             if (!isset($this->controllers[$controllerName])) {
                 throw new Exception("Controller $controllerName not provided.");
             }
@@ -87,10 +96,16 @@ class TestRunner
         echo "</div>";
     
         $this->cleanup();
-    
+
+        
+        // Force exit just in case we attempted to access specific endpoint with unstable code after.
+        // #TODO Kill on first erorr. unless explicitly configured to show overall metrics. Overall metrics would be displayed if all passed (warnings ignored).
+        // This is so we don't run subsequent tests off bad code.
+        // Standard practice would be to run the tests in /tests/tests.php in order of required dependencies.
         if ($this->failed) {
             die("Stopping due to failed tests.");
         }
+        
     }
     private function cleanup()
     {

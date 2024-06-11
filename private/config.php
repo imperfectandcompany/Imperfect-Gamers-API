@@ -30,7 +30,7 @@ $GLOBALS['db_conf']['gs_db_db'] = $game_serverDB;
 $GLOBALS['db_conf']['gs_db_charset'] = "utf8mb4";
 
 $GLOBALS['config']['devmode'] = 1; //This enables dev mode to print out dev information -- DO NOT USE IN PRODUCTION!
-$GLOBALS['config']['testmode'] = 0; //This enables testing
+$GLOBALS['config']['testmode'] = 1; //This enables testing
 
 //General settings
 $GLOBALS['config']['max_username_length'] = '32';

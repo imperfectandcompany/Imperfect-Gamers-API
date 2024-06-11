@@ -205,7 +205,3 @@ class Integration {
         }
 
 }
-
-
-
-?>

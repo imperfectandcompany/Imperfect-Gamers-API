@@ -122,16 +122,31 @@ class Router {
         }
     }
 
+    // public function enforceParameters($uri, $requestMethod, $params = [])
+    // {
+    //     // Check if the route exists
+    //     if (isset($this->routes[$uri]['methods'][$requestMethod])) {
+    //         // Add or update enforced parameters
+    //         $this->routes[$uri]['methods'][$requestMethod]['required_params'] = $params;
+    //     } else {
+    //         throw new Exception("Route with URI '$uri' and request method '$requestMethod' does not exist.");
+    //     }
+    // }
+
+    // This method now supports specifying the source of each parameter:
     public function enforceParameters($uri, $requestMethod, $params = [])
-    {
-        // Check if the route exists
-        if (isset($this->routes[$uri]['methods'][$requestMethod])) {
-            // Add or update enforced parameters
-            $this->routes[$uri]['methods'][$requestMethod]['required_params'] = $params;
-        } else {
-            throw new Exception("Route with URI '$uri' and request method '$requestMethod' does not exist.");
+{
+    if (isset($this->routes[$uri]['methods'][$requestMethod])) {
+        foreach ($params as $paramName => $source) {
+            $this->routes[$uri]['methods'][$requestMethod]['required_params'][$paramName] = $source;
         }
+    } else {
+        throw new Exception("Route with URI '$uri' and request method '$requestMethod' does not exist.");
     }
+}
+
+
+
 
 
     public function getRoutes() {
@@ -188,9 +203,30 @@ class Router {
                     continue; // Just skip this route and check the next one
                 }
 
-                // Extract parameter names and values
+            // Initial parameter extraction from URL
                 $routeParams = array_combine($config['params'], array_slice($matches, 1));
+                $methodConfig = $config['methods'][$httpMethod];
                 $optionalParams = $config['optional_params'] ?? [];
+
+            // Check for required parameters and fetch them from the correct source
+            if (isset($methodConfig['required_params'])) {
+                foreach ($methodConfig['required_params'] as $paramName => $source) {
+                    switch ($source) {
+                        case 'query':
+                            $routeParams[$paramName] = $_GET[$paramName] ?? null;
+                            break;
+                        case 'body':
+                            $postBody = json_decode(file_get_contents("php://input"), true);
+                            $routeParams[$paramName] = $postBody[$paramName] ?? null;
+                            break;
+                        default:
+                            // Default to null if no source is matched
+                            $routeParams[$paramName] = null;
+                            break;
+                    }
+                }
+            }
+
 
                 // Replace parameter values in URL with parameter names
                 $routeUrl = str_replace(array_values($routeParams), array_keys($routeParams), $route);

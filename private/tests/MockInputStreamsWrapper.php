@@ -1,4 +1,7 @@
 <?php 
+
+// private/tests/MockInputStreamsWrapper.php:
+
 class MockInputStreamsWrapper {
 
 private static $mockData = "";
