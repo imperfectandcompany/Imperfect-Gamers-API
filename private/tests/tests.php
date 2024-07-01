@@ -77,8 +77,14 @@ $testSupportController = [
     "createTestCategory",
     "createTestArticle",
     "testFetchArticleById",
+    "testFetchArticlesByCategory",
+    "testUpdateArticle",
+    "testFetchUpdatedArticle",
     "deleteTestArticle",
+    "testFetchArticleByIdFail",
     "testFetchAllCategories",
+    "testUpdateCategory",
+    "testFetchUpdatedCategory",
     "deleteTestCategory"
 ];
 

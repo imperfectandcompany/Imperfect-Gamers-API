@@ -171,6 +171,31 @@ class PremiumController
             }
     }
 
+    public function checkSteamExistsInServer(int $steamId) {
+
+        if (!$steamId) {
+            $this->logger->log(0, 'invalid_steam_id', ['steamId' => $steamId]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Invalid steam ID provided'], 400);
+        }
+
+        try {
+
+            if (!preg_match('/^7656119[0-9]{10}+$/', $steamId)) {
+                $this->logger->log(0, 'invalid_steam_id', ['steam_id' => $steamId]);
+                return ResponseHandler::sendResponse('error', ['message' => 'Invalid Steam ID format'], ERROR_INVALID_INPUT);
+            }
+
+            $exists = $this->premiumModel->isPlayerExistsSharpTimer($steamId);
+            return ResponseHandler::sendResponse('success', ['steam_id' => $steamId, 'exists' => $exists], 200);
+        } catch (Exception $e) {
+            $errorMessage = $e->getMessage();
+            $this->logger->log(0, 'database_error', ['error' => $errorMessage]);
+            return ResponseHandler::sendResponse('error', ['message' => $errorMessage], 500);
+        }
+}
+
+    
+
 
     public function listAllPremiumUsers() {
         try {
