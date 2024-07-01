@@ -60,7 +60,6 @@ function testUpdateArticle($controller) {
     customAssert($updateArticleResponse['status'] === 'success', 'Expected article update to be successful');
 }
 
-
 function testFetchUpdatedArticle($controller) {
     global $articleId;
 
@@ -72,6 +71,39 @@ function testFetchUpdatedArticle($controller) {
     customAssert($article["data"]["article"][0]["Title"] === $newTitle, 'Expected article title to match the updated title');
     customAssert($article["data"]["article"][0]["Description"] === $newDescription, 'Expected article description to match the updated description');
     customAssert($article["data"]["article"][0]["DetailedDescription"] === $newDetailedDescription, 'Expected article detailed description to match the updated detailed description');
+}
+
+function testArchiveArticle($controller) {
+    global $articleId;
+
+    // Archive the article
+    $archiveArticleResponse = $controller->archiveArticle($articleId);
+    customAssert($archiveArticleResponse['status'] === 'success', 'Expected article to be archived successfully');
+}
+
+function testFetchArchivedArticle($controller) {
+    global $articleId;
+
+    // Fetch and verify the archived article
+    $article = $controller->fetchArticleById($articleId);
+    customAssert($article["data"]["article"][0]["Archived"] == 1, 'Expected article to be archived');
+}
+
+
+function testMakeArticleStaffOnly($controller) {
+    global $articleId;
+
+    // Make the article staff-only
+    $staffOnlyArticleResponse = $controller->makeArticleStaffOnly($articleId);
+    customAssert($staffOnlyArticleResponse['status'] === 'success', 'Expected article to be staff-only successfully');
+}
+
+function testFetchStaffOnlyArticle($controller) {
+    global $articleId;
+
+    // Fetch and verify the staff-only article
+    $article = $controller->fetchArticleById($articleId);
+    customAssert($article["data"]["article"][0]["StaffOnly"] == 1, 'Expected article to be staff-only');
 }
 
 function deleteTestArticle($controller) {
@@ -134,3 +166,4 @@ function deleteTestCategory($controller) {
     $deleteArticleResponse = $controller->deleteCategory($categoryId);
     customAssert($deleteArticleResponse['status'] === 'success', 'Expected article deletion to be successful');
 }
+

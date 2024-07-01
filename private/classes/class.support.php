@@ -75,11 +75,12 @@ class Support
 
     public function createArticle($categoryId, $title, $description, $detailedDescription, $imgSrc = null)
     {
+        $slug = strtolower(str_replace(' ', '-', $title));
         $table = "Articles";
-        $rows = "CategoryID, Title, Description, DetailedDescription, ImgSrc";
-        $values = "?, ?, ?, ?, ?";
-        $params = makeFilterParams([$categoryId, $title, $description, $detailedDescription, $imgSrc]);
-        
+        $rows = "CategoryID, Title, Description, DetailedDescription, ImgSrc, Slug";
+        $values = "?, ?, ?, ?, ?, ?";
+        $params = makeFilterParams([$categoryId, $title, $description, $detailedDescription, $imgSrc, $slug]);
+
         try {
             $addResult = $this->supportSiteDb->insertData($table, $rows, $values, $params);
             if ($addResult) {
@@ -100,7 +101,7 @@ class Support
         $values = '?';
         $whereClause = 'WHERE ' . $rows . ' = ' . $values;
         // Delete the specified token
-       return $this->supportSiteDb->deleteData($table, $whereClause, array(array('value' => $categoryID, 'type' => PDO::PARAM_INT)));
+        return $this->supportSiteDb->deleteData($table, $whereClause, array(array('value' => $categoryID, 'type' => PDO::PARAM_INT)));
     }
 
     public function deleteArticle($articleID)
@@ -109,7 +110,7 @@ class Support
         $rows = 'ArticleID';
         $values = '?';
         $whereClause = 'WHERE ' . $rows . ' = ' . $values;
-        
+
         try {
             $deleteResult = $this->supportSiteDb->deleteData($table, $whereClause, array(array('value' => $articleID, 'type' => PDO::PARAM_INT)));
             if ($deleteResult) {
@@ -144,29 +145,71 @@ class Support
             throw new PDOException('Failed to update category: ' . $e->getMessage());
         }
     }
-    
 
-public function updateArticle($articleId, $newTitle, $newDescription, $newDetailedDescription, $newImgSrc = null)
-{
-    // Generate filter params using makeFilterParams function
-    $params = makeFilterParams([$newTitle, $newDescription, $newDetailedDescription, $newImgSrc, $articleId]);
-    try {
-        // Call updateData method with generated filter params
-        $updateResult = $this->supportSiteDb->updateData(
-            "Articles",
-            "Title = :title, Description = :description, DetailedDescription = :detailedDescription, ImgSrc = :imgSrc",
-            "ArticleID = :articleId",
-            $params
-        );
-        if ($updateResult) {
-            return true;
-        } else {
-            throw new Exception("Failed to update article. Ensure common data integrity points and try again.");
+
+    public function updateArticle($articleId, $newTitle, $newDescription, $newDetailedDescription, $newImgSrc = null)
+    {
+        $slug = strtolower(str_replace(' ', '-', $newTitle));
+        // Generate filter params using makeFilterParams function
+        $params = makeFilterParams([$newTitle, $newDescription, $newDetailedDescription, $newImgSrc, $slug, $articleId]);
+        try {
+            // Call updateData method with generated filter params
+            $updateResult = $this->supportSiteDb->updateData(
+                "Articles",
+                "Title = :title, Description = :description, DetailedDescription = :detailedDescription, ImgSrc = :imgSrc, Slug = :slug",
+                "ArticleID = :articleId",
+                $params
+            );
+            if ($updateResult) {
+                return true;
+            } else {
+                throw new Exception("Failed to update article. Ensure common data integrity points and try again.");
+            }
+        } catch (Exception $e) {
+            // Consider checking the reason for failure: was it a database connection issue, or were no rows affected?
+            throw new PDOException('Failed to update article: ' . $e->getMessage());
         }
-    } catch (Exception $e) {
-        // Consider checking the reason for failure: was it a database connection issue, or were no rows affected?
-        throw new PDOException('Failed to update article: ' . $e->getMessage());
     }
-}
+
+
+    public function archiveArticle($articleId)
+    {
+        $params = makeFilterParams([1, $articleId]);
+        try {
+            $updateResult = $this->supportSiteDb->updateData(
+                "Articles",
+                "Archived = :archived",
+                "ArticleID = :articleId",
+                $params
+            );
+            if ($updateResult) {
+                return true;
+            } else {
+                throw new Exception("Failed to archive article. Ensure data integrity and try again.");
+            }
+        } catch (Exception $e) {
+            throw new PDOException('Failed to archive article: ' . $e->getMessage());
+        }
+    }
+
+    public function makeArticleStaffOnly($articleId)
+    {
+        $params = makeFilterParams([1, $articleId]);
+        try {
+            $updateResult = $this->supportSiteDb->updateData(
+                "Articles",
+                "StaffOnly = :staffOnly",
+                "ArticleID = :articleId",
+                $params
+            );
+            if ($updateResult) {
+                return true;
+            } else {
+                throw new Exception("Failed to mark article as staff-only. Ensure data integrity and try again.");
+            }
+        } catch (Exception $e) {
+            throw new PDOException('Failed to mark article as staff-only: ' . $e->getMessage());
+        }
+    }
 
 }
