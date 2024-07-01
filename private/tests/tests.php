@@ -6,8 +6,11 @@ include_once ($GLOBALS['config']['private_folder'] . '/tests/test_infraction.php
 include_once ($GLOBALS['config']['private_folder'] . '/controllers/InfractionController.php');
 include_once ($GLOBALS['config']['private_folder'] . '/tests/test_infraction.php');
 include_once ($GLOBALS['config']['private_folder'] . '/tests/controllers/PremiumControllerTestDouble.php');
+include_once ($GLOBALS['config']['private_folder'] . '/tests/controllers/SupportControllerTestDouble.php');
 include_once ($GLOBALS['config']['private_folder'] . '/tests/test_premium.php');
 include_once ($GLOBALS['config']['private_folder'] . '/tests/test_premium_class.php');
+include_once ($GLOBALS['config']['private_folder'] . '/tests/test_support.php');
+include_once ($GLOBALS['config']['private_folder'] . '/tests/test_support_class.php');
 include_once ($GLOBALS['config']['private_folder'] . '/classes/class.testRunner.php');
 include_once ($GLOBALS['config']['private_folder'] . '/classes/class.logger.php');
 
@@ -45,7 +48,9 @@ $testLogger = new Logger($testDbConnection);
 // Initialize the Controller object once
 $testControllers = [
     'premium' => new PremiumControllerTestDouble($testDbManager, $testLogger),
-    'premiumClass' => new Premium($testDbManager->getConnection('gameserver'), $testDbManager->getConnectionByDbName('gameserver', 'sharptimer')) // initialize Premium class with the correct DB connections
+    'premiumClass' => new Premium($testDbManager->getConnection('gameserver'), $testDbManager->getConnectionByDbName('gameserver', 'sharptimer')), // initialize Premium class with the correct DB connections
+    'support' => new SupportControllerTestDouble($testDbManager, $testLogger), // initialize Support Controller with the correct DB connections
+    'supportClass' => new Support($testDbManager->getConnection('default'), $testDbManager->getConnectionByDbName('default', 'igfastdl_imperfectgamers_support'), $testDbManager->getConnection('gameserver')) // initialize Support class with the correct DB connections
 ];
 
 function customAssert($condition, $message)
@@ -68,22 +73,28 @@ $testPremiumController = [
     "testListAllPremiumUsers"
 ];
 
-$testPremiumClass = [
-    "testGenerateNewFlags",
-    "testGetCurrentFlagsExists",
-    "testGetCurrentFlagsDoesNotExist",
-    "testGenerateNewFlagsAddPremium",
-    "testGenerateNewFlagsRemovePremium",
-    "testIsPlayerExistsSharpTimer"
+$testSupportController = [
+    "createTestCategory",
+    "createTestArticle",
+    "testFetchArticleById",
+    "deleteTestArticle",
+    "testFetchAllCategories",
+    "deleteTestCategory"
+];
+
+$testSupportClass = [
 ];
 
 
 // TODO: Make sure it checks to see each test file in tests exists...
 
 $tests = [
-    "Premium Controller Tests" => ['controller' => 'premium', 'tests' => $testPremiumController],
-    "Premium Class Tests" => ['controller' => 'premiumClass', 'tests' => $testPremiumClass]
+    // "Premium Controller Tests" => ['controller' => 'premium', 'tests' => $testPremiumController],
+    // "Premium Class Tests" => ['controller' => 'premiumClass', 'tests' => $testPremiumClass],
+    "Support Controller Tests" => ['controller' => 'support', 'tests' => $testSupportController],
+    "Support Class Tests" => ['controller' => 'supportClass', 'tests' => $testSupportClass],
 ];
+
 
 $runner = new TestRunner($testControllers);
 $runner->runTests($tests);
@@ -93,7 +104,10 @@ unset($testDbConnection);
 unset($testLogger);
 unset($testControllers);
 unset($testInfraction);
-unset($testPremium);
+unset($testPremiumController);
+unset($testPremiumClass);
+unset($testSupportController);
+unset($testSupportClass);
 unset($tests);
 unset($runner);
 
