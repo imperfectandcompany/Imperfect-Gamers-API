@@ -75,14 +75,38 @@ class SupportController
             }
         } catch (Exception $e) {
             $this->logger->log('error', 'create_category_error', ['error' => $e->getMessage()]);
-            return ResponseHandler::sendResponse('error', ['message' => 'Failed to create category'], 500);
+            return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
         }
     }
 
+    public function checkCategoryTitleExists($title)
+{
+    try {
+        $exists = $this->supportModel->checkCategoryTitleExists($title);
+        return ResponseHandler::sendResponse('success', ['exists' => $exists], 200);
+    } catch (Exception $e) {
+        $this->logger->log('error', 'check_category_title_exists_error', ['error' => $e->getMessage()]);
+        return ResponseHandler::sendResponse('error', ['message' => 'Failed to check category title'], 500);
+    }
+}
+
+public function checkArticleTitleOrSlugExists($title, $slug)
+{
+    try {
+        $exists = $this->supportModel->checkArticleTitleOrSlugExists($title, $slug);
+        return ResponseHandler::sendResponse('success', ['exists' => $exists], 200);
+    } catch (Exception $e) {
+        $this->logger->log('error', 'check_article_title_or_slug_exists_error', ['error' => $e->getMessage()]);
+        return ResponseHandler::sendResponse('error', ['message' => 'Failed to check article title or slug'], 500);
+    }
+}
+
     public function createArticle($categoryId, $title, $description, $detailedDescription, $imgSrc = null)
+
     {
         try {
-            $result = $this->supportModel->createArticle($categoryId, $title, $description, $detailedDescription, $imgSrc);
+            $version = 1; // Initial version for new article
+            $result = $this->supportModel->createArticle($categoryId, $title, $description, $detailedDescription, $version, $imgSrc);            
 
             if ($result) {
                 return ResponseHandler::sendResponse('success', ['message' => 'Article created successfully', 'articleID' => $result["insertID"]], 201);
@@ -91,7 +115,7 @@ class SupportController
             }
         } catch (Exception $e) {
             $this->logger->log('error', 'create_article_error', ['error' => $e->getMessage()]);
-            return ResponseHandler::sendResponse('error', ['message' => 'Failed to create article'], 500);
+            return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500); // Adjusted to return the exception message
         }
     }
 
@@ -142,10 +166,10 @@ class SupportController
         }
     }
 
-    public function updateArticle($articleId, $newTitle, $newDescription, $newDetailedDescription, $newImgSrc = null)
+    public function updateArticle($articleId, $categoryId, $newTitle, $newDescription, $newDetailedDescription, $newImgSrc = null)
     {
         try {
-            $result = $this->supportModel->updateArticle($articleId, $newTitle, $newDescription, $newDetailedDescription, $newImgSrc);
+            $result = $this->supportModel->updateArticle($articleId, $categoryId, $newTitle, $newDescription, $newDetailedDescription, $newImgSrc);
             if ($result) {
                 return ResponseHandler::sendResponse('success', ['message' => 'Article updated successfully'], 200);
             } else {
@@ -184,6 +208,61 @@ class SupportController
         } catch (Exception $e) {
             $this->logger->log('error', 'make_article_staff_only_error', ['error' => $e->getMessage()]);
             return ResponseHandler::sendResponse('error', ['message' => 'Failed to mark article as staff-only'], 500);
+        }
+    }
+    public function createArticleVersion($articleId, $categoryId, $title, $description, $detailedDescription, $imgSrc = null)
+    {
+        try {
+            $latestVersion = $this->supportModel->getLatestArticleVersion($articleId);
+            $newVersion = $latestVersion + 1;
+            $result = $this->supportModel->createArticleVersion($articleId, $categoryId, $title, $description, $detailedDescription, $newVersion, $imgSrc);
+    
+            if ($result) {
+                return ResponseHandler::sendResponse('success', ['message' => 'Article version created successfully', 'version' => $newVersion], 201);
+            } else {
+                return ResponseHandler::sendResponse('error', ['message' => 'Failed to create article version'], 500);
+            }
+        } catch (Exception $e) {
+            $this->logger->log('error', 'create_article_version_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to create article version'], 500);
+        }
+    }
+    
+    public function fetchArticleVersions($articleId)
+    {
+        try {
+            $versions = $this->supportModel->fetchArticleVersions($articleId);
+            return ResponseHandler::sendResponse('success', ['versions' => $versions], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'fetch_article_versions_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch article versions'], 500);
+        }
+    }
+
+    public function createCategoryVersion($categoryId, $title)
+    {
+        try {
+            $result = $this->supportModel->createCategoryVersion($categoryId, $title);
+
+            if ($result) {
+                return ResponseHandler::sendResponse('success', ['message' => 'Category version created successfully'], 201);
+            } else {
+                return ResponseHandler::sendResponse('error', ['message' => 'Failed to create category version'], 500);
+            }
+        } catch (Exception $e) {
+            $this->logger->log('error', 'create_category_version_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to create category version'], 500);
+        }
+    }
+
+    public function fetchCategoryVersions($categoryId)
+    {
+        try {
+            $versions = $this->supportModel->fetchCategoryVersions($categoryId);
+            return ResponseHandler::sendResponse('success', ['versions' => $versions], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'fetch_category_versions_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch category versions'], 500);
         }
     }
 

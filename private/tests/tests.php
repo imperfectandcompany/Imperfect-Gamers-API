@@ -75,20 +75,29 @@ $testPremiumController = [
 
 $testSupportController = [
     "createTestCategory",
+    "testCheckCategoryTitleExists",
+    "testPreventDuplicateCategoryTitle",
     "createTestArticle",
+    "testCheckArticleTitleOrSlugExists",
+    "testPreventDuplicateArticleSlugOrTitle",
     "testFetchArticleById",
     "testFetchArticlesByCategory",
     "testUpdateArticle",
+    "testFetchArticleVersionsAfterUpdate",
     "testArchiveArticle",
     "testFetchArchivedArticle",
     "testMakeArticleStaffOnly",
     "testFetchStaffOnlyArticle",
+    "testCreateArticleVersion",
+    "testFetchArticleVersions",
     "testFetchUpdatedArticle",
     "deleteTestArticle",
     "testFetchArticleByIdFail",
     "testFetchAllCategories",
     "testUpdateCategory",
     "testFetchUpdatedCategory",
+    "testCreateCategoryVersion",
+    "testFetchCategoryVersions",
     "deleteTestCategory"
 ];
 
