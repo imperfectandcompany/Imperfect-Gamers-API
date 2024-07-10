@@ -126,7 +126,7 @@ class UserController
                     throwWarning('Username not found');
                     $this->logger->log(0, 'authentication_failed', 'User not found');
                     // Return an error if the user cannot be found
-                    ResponseHandler::sendResponse('error', ['message' => "User not found'."], ERROR_NOT_FOUND);
+                    ResponseHandler::sendResponse('error', ['message' => "User not found."], ERROR_NOT_FOUND);
                     return false;
                 }
             }

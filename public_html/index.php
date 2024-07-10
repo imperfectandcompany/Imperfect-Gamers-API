@@ -75,7 +75,7 @@ $GLOBALS['messages']['test'] = array(); //Main array for all status messages
 // include '../private/configs/application_'.ENVIRONMENT.'.php';
 
 
-
+// TODO Consider versioning the API (/api/v1/...) to accommodate future changes without breaking existing integrations.
 
 // includes
 include ($GLOBALS['config']['private_folder'] . '/functions/functions.general.php');
@@ -174,11 +174,6 @@ if (DEVMODE == 1 && $isLoggedIn) {
 // );
 
 // $message = $localizationManager->getLocalizedString('ERROR_LOGIN_FAILED');
-
-// echo $message;
-// yo sterling was here lmaooo
-// echo "afwefw;";
-
 
 
 // handle case where user is not authenticated
@@ -279,6 +274,26 @@ $mutualRoute->addDocumentation('/infractions/details/admin/:adminSteamId', 'GET'
 $mutualRoute->add('/infractions/details/admin/:adminSteamId/p/:page', 'InfractionController@getInfractionDetailsByAdminIdPaginated', 'GET');
 $mutualRoute->addDocumentation('/infractions/details/admin/:adminSteamId/p/:page', 'GET', 'Fetches paginated infraction details by Admin Steam ID.');
 
+
+// ## FOR SUPPORT.IMPERFECTGAMERS.ORG
+
+// Route to fetch an article by ID
+$mutualRoute->add('/support/article/fetchById/:id', 'SupportController@fetchArticleById', 'GET');
+$mutualRoute->addDocumentation('/support/article/fetchById/:id', 'GET', 'Fetches an article by its ID.');
+
+// Route to fetch an article by ID
+$mutualRoute->add('/support/article/fetchBySlug/:slug', 'SupportController@fetchArticleBySlug', 'GET');
+$mutualRoute->addDocumentation('/support/article/fetchBySlug/:slug', 'GET', 'Fetches an article by its slug.');
+
+// Route to fetch articles by category
+$mutualRoute->add('/support/articles/fetchByCategory/:categoryId', 'SupportController@fetchArticlesByCategory', 'GET');
+$mutualRoute->addDocumentation('/support/articles/fetchByCategory/:categoryId', 'GET', 'Fetches articles by category ID.');
+
+// Route to fetch all categories
+$mutualRoute->add('/support/categories', 'SupportController@fetchAllCategories', 'GET');
+$mutualRoute->addDocumentation('/support/categories', 'GET', 'Fetches all categories.');
+
+
 if (DEVMODE == 1) {
     $mutualRoute->add('/list-routes', 'DevController@listRoutes', 'GET');
 }
@@ -317,6 +332,9 @@ $router->addDocumentation('/user/onboarded', 'GET', 'Confirms whether the user c
 $router->add('/user/verifySteam', 'UserController@checkSteamLink', 'POST');
 $router->addDocumentation('/user/verifySteam', 'POST', 'Verifies the logged in user has a steam account');
 
+$router->add('/user/checkSteamLinked/:steam_id_64', 'UserController@checkSteamLinked', 'GET');
+$router->addDocumentation('/user/checkSteamLinked/:steam_id_64', 'GET', 'Checks if the specified Steam ID is already linked to a user.');
+
 $router->add('/user/linkSteam', 'UserController@linkSteamAccount', 'POST');
 $router->addDocumentation('/user/linkSteam', 'POST', 'Links the logged in user\'s Steam account by saving the Steam ID to their profile');
 
@@ -350,7 +368,7 @@ if (!defined('IMPERFECT_HOST_SECRET')) {
     define('IMPERFECT_HOST_SECRET', $imperfect_host_webhook_key);
 }
 
-if(hash_equals(hash_hmac('sha256', file_get_contents('php://input'), IMPERFECT_HOST_SECRET), getallheaders()['X-Signature'] ?? '')){
+if (hash_equals(hash_hmac('sha256', file_get_contents('php://input'), IMPERFECT_HOST_SECRET), getallheaders()['X-Signature'] ?? '')) {
     $router->add('/premium/update/user/:userId/:premiumStatus', 'PremiumController@updatePremiumUser', 'PUT');
     $router->enforceParameters('/premium/update/user/:userId/:premiumStatus', 'PUT', [
         'steam_id' => 'body',
@@ -360,23 +378,122 @@ if(hash_equals(hash_hmac('sha256', file_get_contents('php://input'), IMPERFECT_H
     $router->addDocumentation('/premium/update/user/:userId/:premiumStatus', 'PUT', 'Updates the premium status of a user, ensuring user data consistency.');
 }
 
-$router->add('/premium/status/:user_id', 'PremiumController@checkPremiumStatus', 'GET');
-$router->addDocumentation('/premium/status/:user_id', 'GET', 'Checks if a user is a premium member.');
+// TODO: Make route add fail is the controller paramaeters name does not match the parameterized part as variable (eg. :user_id => int $user_id) 
+$router->add('/premium/status/:userId', 'PremiumController@checkPremiumStatus', 'GET');
+$router->addDocumentation('/premium/status/:userId', 'GET', 'Checks if a user is a premium member.');
 
 $router->add('/premium/all', 'PremiumController@listAllPremiumUsers', 'GET');
 $router->addDocumentation('/premium/all', 'GET', 'Retrieves a list of all premium users.');
 
-// Add the route for checking if a user exists in the server
+// Add the route for checking if a user ID's linked steam id exists in the server
 $router->add('/premium/exists/:userId', 'PremiumController@checkUserExistsInServer', 'GET');
-$router->addDocumentation('/premium/exists/:userId', 'GET', 'Checks if a user exists in the server and has a linked Steam ID.');
+$router->addDocumentation('/premium/exists/:userId', 'GET', 'Checks if a user ID (from website) exists in the server through linked Steam ID.');
+
+
+// Add the route for checking if a steam ID exists in the server
+$router->add('/premium/steamExists/:steamId', 'PremiumController@checkSteamExistsInServer', 'GET');
+$router->addDocumentation('/premium/steamExists/:steamId', 'GET', 'Checks if a steam ID in the server through linked Steam ID.');
 
 // if the user is authenticated, use that instance of the Router class and dispatch the incoming request
+
+
+// ## FOR SUPPORT.IMPERFECTGAMERS.ORG
+
+// Route to create a new category
+$router->add('/support/category/create', 'SupportController@createCategory', 'POST');
+$router->enforceParameters('/support/category/create', 'POST', [
+    'categoryTitle' => 'body',
+]);
+$router->addDocumentation('/support/category/create', 'POST', 'Creates a new category.');
+
+// Route to check if a category title exists
+$router->add('/support/category/checkTitleExists', 'SupportController@checkCategoryTitleExists', 'GET');
+$router->addDocumentation('/support/category/checkTitleExists', 'GET', 'Checks if a category title already exists.');
+
+// Route to create a new article
+$router->add('/support/article/create', 'SupportController@createArticle', 'POST');
+// $router->enforceParameters('/support/article/create', 'POST', [
+//     'title' => 'body',
+//     'description' => 'body',
+//     'detailedDescription' => 'body',
+//     'categoryId' => 'body'
+// ]);
+// TODO DO NOT THROW 404 IN ROUTER CLASS
+$router->addDocumentation('/support/article/create', 'POST', 'Creates a new article.');
+
+// Route to check if an article title or slug exists
+$router->add('/support/article/checkTitleOrSlugExists', 'SupportController@checkArticleTitleOrSlugExists', 'GET');
+$router->addDocumentation('/support/article/checkTitleOrSlugExists', 'GET', 'Checks if an article title or slug already exists.');
+
+// Route to update an article
+$router->add('/support/article/update/:articleId', 'SupportController@updateArticle', 'PUT');
+$router->enforceParameters('/support/article/update/:articleId', 'PUT', [
+    'categoryId' => 'body',
+    'title' => 'body',
+    'description' => 'body',
+    'detailedDescription' => 'body',
+    'imgSrc' => 'body'
+]);
+$router->addDocumentation('/support/article/update/:articleId', 'PUT', 'Updates an article with the given ID.');
+
+// Route to archive an article
+$router->add('/support/article/toggleArchive/:articleId', 'SupportController@archiveArticle', 'PUT');
+$router->addDocumentation('/support/article/toggleArchive/:articleId', 'PUT', 'Archives an article by its ID.');
+
+// Route to make an article staff-only
+$router->add('/support/article/toggleStaffOnly/:articleId', 'SupportController@toggleArticleStaffOnly', 'PUT');
+$router->addDocumentation('/support/article/toggleStaffOnly/:articleId', 'PUT', 'Makes an article staff-only by its ID.');
+
+// Route to fetch action logs for an article version
+$router->add('/support/article/fetchActionLogs/:articleId', 'SupportController@fetchArticleActionLogs', 'GET');
+$router->addDocumentation('/support/article/fetchActionLogs/:articleId', 'GET', 'Fetches action logs for a specific article.');
+
+// Route to create a new article version
+$router->add('/support/article/createVersion', 'SupportController@createArticleVersion', 'POST');
+$router->addDocumentation('/support/article/createVersion', 'POST', 'Creates a new version of an article.');
+
+// Route to fetch article versions
+$router->add('/support/article/fetchVersions/:articleId', 'SupportController@fetchArticleVersions', 'GET');
+$router->addDocumentation('/support/article/fetchVersions/:articleId', 'GET', 'Fetches article versions by article ID.');
+
+// Route to fetch category versions
+$router->add('/support/category/fetchVersions/:categoryId', 'SupportController@fetchCategoryVersions', 'GET');
+$router->addDocumentation('/support/category/fetchVersions/:categoryId', 'GET', 'Fetches category versions by category ID.');
+
+// Route to delete an article
+$router->add('/support/article/delete/:articleId', 'SupportController@deleteArticle', 'DELETE');
+$router->addDocumentation('/support/article/delete/:articleId', 'DELETE', 'Deletes an article by its ID.');
+
+// Route to update a category
+$router->add('/support/category/update/:categoryId', 'SupportController@updateCategory', 'PUT');
+$router->enforceParameters('/support/category/update/:categoryId', 'PUT', [
+    'categoryTitle' => 'body',
+]);
+$router->addDocumentation('/support/category/update/:categoryId', 'PUT', 'Updates a category.');
+
+// Route to delete a category
+$router->add('/support/category/delete/:categoryId', 'SupportController@deleteCategory', 'DELETE');
+$router->addDocumentation('/support/category/delete/:categoryId', 'DELETE', 'Deletes a category by its ID.');
+
+// Route to create a new category version
+$router->add('/support/category/createVersion', 'SupportController@createCategoryVersion', 'POST');
+$router->addDocumentation('/support/category/createVersion', 'POST', 'Creates a new version of a category.');
+
+$router->add('/support/categories/deleted', 'SupportController@fetchDeletedCategories', 'GET');
+$router->add('/support/articles/deleted', 'SupportController@fetchDeletedArticles', 'GET');
+
+// Route to restore an article
+$router->add('/support/article/restore/:articleId', 'SupportController@restoreArticle', 'PUT');
+$router->addDocumentation('/support/article/restore/:articleId', 'PUT', 'Restores a deleted article by its ID.');
+
+// Route to restore a category
+$router->add('/support/category/restore/:categoryId', 'SupportController@restoreCategory', 'PUT');
+$router->addDocumentation('/support/category/restore/:categoryId', 'PUT', 'Restores a deleted category by its ID.');
 
 //dispatch router since authentication and global variables are set!
 $router->dispatch($GLOBALS['url_loc'], $dbManager, DEVMODE);
 
 // unset token to prevent accidental use
-// TODO find the other two easter egss left haha
 unset($token);
 ob_end_flush();
 

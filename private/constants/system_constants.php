@@ -111,13 +111,13 @@ $allowedIPs = $debug_IPs; // Add your IP address here
 
 $config = [
     'DEVMODE' => false, // Enable dev mode
-    'loggedIn' => true, // Switch between loggedin and loggedout 
+    'loggedIn' => false, // Switch between loggedin and loggedout 
     'TESTMODE' => true // requires DEVMODE to be true
 ];
 
-if ($_SERVER['HTTP_HOST'] === 'api.imperfectgamers.org' && in_array($_SERVER['REMOTE_ADDR'], $allowedIPs)) {
+if ($_SERVER['HTTP_HOST'] === ('api.imperfectgamers.org') && in_array($_SERVER['REMOTE_ADDR'], $allowedIPs)) {
     // Check if the referrer is not your main site
-    if (!isset($_SERVER['HTTP_REFERER']) || parse_url($_SERVER['HTTP_REFERER'], PHP_URL_HOST) !== 'imperfectgamers.org') {
+    if (!isset($_SERVER['HTTP_REFERER']) || parse_url($_SERVER['HTTP_REFERER'], PHP_URL_HOST) !== ('imperfectgamers.org' || 'support.imperfectgamers.org' || 'http://localhost:5173/')) {
         // Development and Test Modes
         // Development mode (for debugging and development, not for production use)
         define('DEVMODE', $config['DEVMODE']);
