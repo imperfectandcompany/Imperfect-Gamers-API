@@ -4,8 +4,10 @@ include(PRIVATE_FOLDER.'/classes/class.logger.php');
 class Router {
     
     protected $routes = [];
+    
+// TODO THROW ERROR IF LOADED CLASS USERS DUPLICATE CLASS NAME
 
-    public function add($uri, $controller, $requestMethod, $documentation = null)
+public function add($uri, $controller, $requestMethod, $documentation = null)
     {
 
         // Check if the URI is valid
@@ -325,7 +327,7 @@ class Router {
         if (DEVMODE) {
             echo "Error: $message";
         } else {
-            echo "Error: Route not found.";
+            echo $message;
         }
     }
 

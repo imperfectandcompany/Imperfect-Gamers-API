@@ -490,6 +490,60 @@ $router->addDocumentation('/support/article/restore/:articleId', 'PUT', 'Restore
 $router->add('/support/category/restore/:categoryId', 'SupportController@restoreCategory', 'PUT');
 $router->addDocumentation('/support/category/restore/:categoryId', 'PUT', 'Restores a deleted category by its ID.');
 
+// Route to retrieve all categories, subcategories, sub-issues, and inputs with version IDs
+$router->add('/support/issue-categories', 'SupportRequestController@getIssueCategories', 'GET');
+$router->addDocumentation('/support/issue-categories', 'GET', 'Retrieves all categories, subcategories, sub-issues, and inputs with version IDs.');
+
+// Route to submit a support request with version tracking
+$router->add('/support/support-request', 'SupportRequestController@submitSupportRequest', 'POST');
+$router->enforceParameters('/support/support-request', 'POST', [
+    'title' => 'body',
+    'description' => 'body',
+    'versionId' => 'body',
+]);
+$router->addDocumentation('/support/support-request', 'POST', 'Submits a support request with version tracking.');
+
+
+$router->add('/support/requests/populate', 'SupportRequestController@handleFetchAllCategories', 'GET');
+$router->add('/support/requests/populate/all', 'SupportRequestController@handleFetchAllRequestFormData', 'GET');
+$router->add('/support/requests/populate/category/:categoryId', 'SupportRequestController@handleCategorySelection', 'GET');
+
+$router->add('/support/requests/logs', 'SupportRequestController@handleFetchActionLogs', 'GET');
+$router->add('/support/requests/inputs', 'SupportRequestController@handleFetchAllInputs', 'GET');
+$router->add('/support/requests/issues', 'SupportRequestController@handleFetchAllIssues', 'GET');
+
+$router->add('/support/requests/:supportRequestId', 'SupportRequestController@handleFetchSupportRequest', 'GET');
+$router->add('/support/requests', 'SupportRequestController@handleFetchAllSupportRequests', 'GET');
+$router->add('/support/requests/inputs/versions', 'SupportRequestController@handleFetchAllInputVersions', 'GET');
+$router->add('/support/requests/categories/hierarchy', 'SupportRequestController@handleFetchCategoriesHierarchy', 'GET');
+
+// Fetch a specific category's versions
+$router->add('/support/requests/categories/:categoryId/versions', 'SupportRequestController@handleFetchCategoryVersions', 'GET');
+
+// Fetch historical versions of a specific category
+$router->add('/support/requests/categories/:categoryId/versions/history', 'SupportRequestController@handleFetchCategoryVersionHistory', 'GET');
+
+// Fetch a specific issue's versions
+$router->add('/support/requests/issues/:issueId/versions', 'SupportRequestController@handleFetchIssueVersions', 'GET');
+
+// Fetch historical versions of a specific issue
+$router->add('/support/requests/issues/:issueId/versions/history', 'SupportRequestController@handleFetchIssueVersionHistory', 'GET');
+
+
+
+// Fetch specific support request versions
+$router->add('/support/requests/:supportRequestId/versions', 'SupportRequestController@handleFetchSupportRequestVersions', 'GET');
+
+// Fetch historical versions of a specific support request
+$router->add('/support/requests/:supportRequestId/versions/history', 'SupportRequestController@handleFetchSupportRequestVersionHistory', 'GET');
+
+
+
+// Update a category and create a new version
+// $router->add('/support/requests/categories/:categoryId/update', 'SupportRequestController@handleUpdateCategory', 'POST');
+
+
+
 //dispatch router since authentication and global variables are set!
 $router->dispatch($GLOBALS['url_loc'], $dbManager, DEVMODE);
 
