@@ -18,9 +18,9 @@ class SupportRequestController
     {
         // Connect specifically to the 'igfastdl_imperfectgamers' database for main website related data (auth)
         $this->dbConnection = $dbManager->getConnection('default');
-        // Connect specifically to the 'igfastdl_imperfectgamers_support' database for support website related data
+        // Connect specifically to the 'igfastdl_imperfectgamers_support' database for support website related data [SILO 1]
         $this->secondaryConnection = $dbManager->getConnectionByDbName('default', 'igfastdl_imperfectgamers_support');
-        // Connect specifically to the 'igfastdl_imperfectgamers_requests database for support request website related data
+        // Connect specifically to the 'igfastdl_imperfectgamers_requests database for support request website related data [SILO 2]
         $this->tertiaryConnection = $dbManager->getConnectionByDbName('default', 'igfastdl_imperfectgamers_requests');
         // for logging purposes
         $this->logger = $logger;
@@ -37,7 +37,7 @@ class SupportRequestController
 
         } catch (Exception $e) {
             $this->logger->log('error', 'fetch_categories_error', ['error' => $e->getMessage()]);
-            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch categories'], 500);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch inputs for category', 'errMsg' => $e->getMessage()], 500);
         }
     }
 
@@ -71,7 +71,7 @@ class SupportRequestController
             return ResponseHandler::sendResponse('success', ['data' => $requestFormData], 200);
         } catch (Exception $e) {
             $this->logger->log('error', 'fetch_all_request_form_data_error', ['error' => $e->getMessage()]);
-            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch all request form data'], 500);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch all request form data', 'errMsg' => $e->getMessage()], 500);
         }
     }
 
@@ -135,38 +135,43 @@ class SupportRequestController
 
 
     // Fetch a specific support request
-    public function handleFetchSupportRequest(int $supportRequestId) {
+    public function handleFetchSupportRequest(int $supportRequestId)
+    {
         try {
             $supportRequest = $this->fetchSupportRequest($supportRequestId);
             return ResponseHandler::sendResponse('success', ['data' => $supportRequest], 200);
         } catch (Exception $e) {
             $this->logger->log('error', 'fetch_support_request_error', ['error' => $e->getMessage()]);
-            return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch support request'], 500);
         }
     }
 
-    private function fetchSupportRequest($supportRequestId) {
+    private function fetchSupportRequest($supportRequestId)
+    {
         return $this->supportRequestModel->fetchSupportRequest($supportRequestId);
     }
 
-        // Fetch all support requests
-        public function handleFetchAllSupportRequests() {
-            try {
-                $supportRequests = $this->fetchAllSupportRequests();
-                return ResponseHandler::sendResponse('success', ['data' => $supportRequests], 200);
-            } catch (Exception $e) {
-                $this->logger->log('error', 'fetch_all_support_requests_error', ['error' => $e->getMessage()]);
-                return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch support requests'], 500);
-            }
+    // Fetch all support requests
+    public function handleFetchAllSupportRequests()
+    {
+        try {
+            $supportRequests = $this->fetchAllSupportRequests();
+            return ResponseHandler::sendResponse('success', ['data' => $supportRequests], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'fetch_all_support_requests_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch support requests'], 500);
         }
-    
-        private function fetchAllSupportRequests() {
-            return $this->supportRequestModel->fetchAllSupportRequests();
-        }
+    }
+
+    private function fetchAllSupportRequests()
+    {
+        return $this->supportRequestModel->fetchAllSupportRequests();
+    }
 
 
-            // Fetch all categories' hierarchy
-    public function handleFetchCategoriesHierarchy() {
+    // Fetch all categories' hierarchy
+    public function handleFetchCategoriesHierarchy()
+    {
         try {
             $categoriesHierarchy = $this->fetchCategoriesHierarchy();
             return ResponseHandler::sendResponse('success', ['data' => $categoriesHierarchy], 200);
@@ -176,12 +181,14 @@ class SupportRequestController
         }
     }
 
-    private function fetchCategoriesHierarchy() {
+    private function fetchCategoriesHierarchy()
+    {
         return $this->supportRequestModel->fetchCategoriesHierarchy();
     }
 
     // Fetch all input versions
-    public function handleFetchAllInputVersions() {
+    public function handleFetchAllInputVersions()
+    {
         try {
             $inputVersions = $this->fetchAllInputVersions();
             return ResponseHandler::sendResponse('success', ['data' => $inputVersions], 200);
@@ -191,14 +198,16 @@ class SupportRequestController
         }
     }
 
-    private function fetchAllInputVersions() {
+    private function fetchAllInputVersions()
+    {
         return $this->supportRequestModel->fetchAllInputVersions();
     }
 
 
 
     // Fetch specific category versions
-    public function handleFetchCategoryVersions($categoryId) {
+    public function handleFetchCategoryVersions($categoryId)
+    {
         try {
             $categoryVersions = $this->fetchCategoryVersions($categoryId);
             return ResponseHandler::sendResponse('success', ['data' => $categoryVersions], 200);
@@ -208,13 +217,15 @@ class SupportRequestController
         }
     }
 
-    private function fetchCategoryVersions($categoryId) {
+    private function fetchCategoryVersions($categoryId)
+    {
         return $this->supportRequestModel->fetchCategoryVersions($categoryId);
     }
 
 
     // Fetch historical versions of a specific category
-    public function handleFetchCategoryVersionHistory($categoryId) {
+    public function handleFetchCategoryVersionHistory($categoryId)
+    {
         try {
             $categoryHistory = $this->fetchCategoryVersionHistory($categoryId);
             return ResponseHandler::sendResponse('success', ['data' => $categoryHistory], 200);
@@ -224,47 +235,53 @@ class SupportRequestController
         }
     }
 
-    private function fetchCategoryVersionHistory($categoryId) {
+    private function fetchCategoryVersionHistory($categoryId)
+    {
         return $this->supportRequestModel->fetchCategoryVersionHistory($categoryId);
     }
 
 
-   // Fetch specific issue versions
-   public function handleFetchIssueVersions($issueId) {
-    try {
-        $issueVersions = $this->fetchIssueVersions($issueId);
-        return ResponseHandler::sendResponse('success', ['data' => $issueVersions], 200);
-    } catch (Exception $e) {
-        $this->logger->log('error', 'fetch_issue_versions_error', ['error' => $e->getMessage()]);
-        return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch issue versions'], 500);
+    // Fetch specific issue versions
+    public function handleFetchIssueVersions($issueId)
+    {
+        try {
+            $issueVersions = $this->fetchIssueVersions($issueId);
+            return ResponseHandler::sendResponse('success', ['data' => $issueVersions], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'fetch_issue_versions_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch issue versions'], 500);
+        }
     }
-}
 
-private function fetchIssueVersions($issueId) {
-    return $this->supportRequestModel->fetchIssueVersions($issueId);
-}
-
-// Fetch historical versions of a specific issue
-public function handleFetchIssueVersionHistory($issueId) {
-    try {
-        $issueHistory = $this->fetchIssueVersionHistory($issueId);
-        return ResponseHandler::sendResponse('success', ['data' => $issueHistory], 200);
-    } catch (Exception $e) {
-        $this->logger->log('error', 'fetch_issue_version_history_error', ['error' => $e->getMessage()]);
-        return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch issue version history'], 500);
+    private function fetchIssueVersions($issueId)
+    {
+        return $this->supportRequestModel->fetchIssueVersions($issueId);
     }
-}
 
-private function fetchIssueVersionHistory($issueId) {
-    return $this->supportRequestModel->fetchIssueVersionHistory($issueId);
-}
+    // Fetch historical versions of a specific issue
+    public function handleFetchIssueVersionHistory($issueId)
+    {
+        try {
+            $issueHistory = $this->fetchIssueVersionHistory($issueId);
+            return ResponseHandler::sendResponse('success', ['data' => $issueHistory], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'fetch_issue_version_history_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch issue version history'], 500);
+        }
+    }
+
+    private function fetchIssueVersionHistory($issueId)
+    {
+        return $this->supportRequestModel->fetchIssueVersionHistory($issueId);
+    }
 
 
 
 
 
     // Fetch specific support request versions
-    public function handleFetchSupportRequestVersions($supportRequestId) {
+    public function handleFetchSupportRequestVersions($supportRequestId)
+    {
         try {
             $supportRequestVersions = $this->fetchSupportRequestVersions($supportRequestId);
             return ResponseHandler::sendResponse('success', ['data' => $supportRequestVersions], 200);
@@ -274,12 +291,14 @@ private function fetchIssueVersionHistory($issueId) {
         }
     }
 
-    private function fetchSupportRequestVersions($supportRequestId) {
+    private function fetchSupportRequestVersions($supportRequestId)
+    {
         return $this->supportRequestModel->fetchSupportRequestVersions($supportRequestId);
     }
 
     // Fetch historical versions of a specific support request
-    public function handleFetchSupportRequestVersionHistory($supportRequestId) {
+    public function handleFetchSupportRequestVersionHistory($supportRequestId)
+    {
         try {
             $supportRequestHistory = $this->fetchSupportRequestVersionHistory($supportRequestId);
             return ResponseHandler::sendResponse('success', ['data' => $supportRequestHistory], 200);
@@ -289,7 +308,8 @@ private function fetchIssueVersionHistory($issueId) {
         }
     }
 
-    private function fetchSupportRequestVersionHistory($supportRequestId) {
+    private function fetchSupportRequestVersionHistory($supportRequestId)
+    {
         return $this->supportRequestModel->fetchSupportRequestVersionHistory($supportRequestId);
     }
 
@@ -307,6 +327,245 @@ private function fetchIssueVersionHistory($issueId) {
 
 
 
+
+
+
+
+
+    public function handleCreateCategory()
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        try {
+            $categoryId = $this->supportRequestModel->createCategory($input);
+            return ResponseHandler::sendResponse('success', ['category_id' => $categoryId], 201);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'create_category_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to create category', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+    public function handleUpdateCategory($categoryId)
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        try {
+            $this->supportRequestModel->updateCategory($categoryId, $input);
+            return ResponseHandler::sendResponse('success', ['message' => 'Category updated'], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'update_category_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to update category', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+    public function handleDeleteCategory($categoryId)
+    {
+        try {
+            $this->supportRequestModel->deleteCategory($categoryId);
+            return ResponseHandler::sendResponse('success', ['message' => 'Category deleted'], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'delete_category_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to delete category', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+    public function handleCreateInput()
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        try {
+            $inputId = $this->supportRequestModel->createInput($input);
+            return ResponseHandler::sendResponse('success', ['input_id' => $inputId], 201);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'create_input_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to create input'], 500);
+        }
+    }
+
+    public function handleUpdateInput($inputId)
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        try {
+            $this->supportRequestModel->updateInput($inputId, $input);
+            return ResponseHandler::sendResponse('success', ['message' => 'Input updated'], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'update_input_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to update input', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+    public function handleDeleteInput(int $inputId)
+    {
+        try {
+            $this->supportRequestModel->deleteInput($inputId);
+            return ResponseHandler::sendResponse('success', ['message' => 'Input deleted'], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'delete_input_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to delete input', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+
+
+    public function handleCreateSupportRequest()
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        try {
+            // Fetch dynamic inputs based on category
+            $categoryId = $input['category_id'];
+            $dynamicInputs = $this->supportRequestModel->fetchDynamicInputsByCategory($categoryId);
+
+            // Validate dynamic inputs
+            $validationErrors = $this->validateDynamicInputs($dynamicInputs, $input);
+            if (!empty($validationErrors)) {
+                return ResponseHandler::sendResponse('error', ['message' => 'Validation failed', 'errors' => $validationErrors], 400);
+            }
+
+            // Create support request
+            $supportRequestId = $this->supportRequestModel->createSupportRequest($input, $dynamicInputs);
+            return ResponseHandler::sendResponse('success', ['support_request_id' => $supportRequestId], 201);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'create_support_request_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to create support request', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+    private function validateDynamicInputs($dynamicInputs, $input)
+    {
+        $errors = [];
+        foreach ($dynamicInputs as $dynamicInput) {
+            $key = $dynamicInput['label'];
+            if (!isset($input[$key]) || empty($input[$key])) {
+                $errors[$key] = 'This field is required.';
+            }
+        }
+        return $errors;
+    }
+
+    public function handleAddComment(int $supportRequestId)
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        try {
+            $userId = $GLOBALS['user_id']; // user ID is available globally
+            $this->supportRequestModel->addComment($supportRequestId, $userId, $input['comment']);
+            return ResponseHandler::sendResponse('success', ['message' => 'Comment added'], 201);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'add_comment_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to add comment', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+    public function handleFetchComments($supportRequestId)
+    {
+        try {
+            $comments = $this->supportRequestModel->fetchComments($supportRequestId);
+            return ResponseHandler::sendResponse('success', ['comments' => $comments], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'fetch_comments_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch comments', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+    public function handleUpdateSupportRequest($supportRequestId)
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        try {
+            $this->supportRequestModel->updateSupportRequest($supportRequestId, $input);
+            return ResponseHandler::sendResponse('success', ['message' => 'Support request updated'], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'update_support_request_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to update support request', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+    public function handleDeleteSupportRequest($supportRequestId)
+    {
+        try {
+            $this->supportRequestModel->deleteSupportRequest($supportRequestId);
+            return ResponseHandler::sendResponse('success', ['message' => 'Support request deleted'], 200);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'delete_support_request_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to delete support request', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+
+
+
+    // Fetching Open Requests
+    public function getOpenRequests()
+    {
+        $requests = $this->supportRequestModel->fetchOpenRequests();
+        return ResponseHandler::sendResponse('success', ['requests' => $requests], 200);
+    }
+
+
+    // Updating Status / Priority
+    public function updateRequestStatus(int $supportRequestId)
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $allowedStatuses = ['open', 'in progress', 'closed'];
+
+        if (!in_array($input['status'], $allowedStatuses)) {
+            return ResponseHandler::sendResponse('error', ['message' => 'Invalid Status value'], 400);
+        }
+
+        try {
+            $this->supportRequestModel->updateStatus($supportRequestId, $input['status']);
+            return ResponseHandler::sendResponse('success', ['message' => 'Status updated'], 200);
+        } catch (Exception $e) {
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to update Status', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+
+    public function updateRequestPriority(int $supportRequestId)
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $allowedPriorities = ['high', 'medium', 'low'];
+
+        if (!in_array($input['priority'], $allowedPriorities)) {
+            return ResponseHandler::sendResponse('error', ['message' => 'Invalid priority value'], 400);
+        }
+
+        try {
+            $this->supportRequestModel->updatePriority($supportRequestId, $input['priority']);
+            return ResponseHandler::sendResponse('success', ['message' => 'Priority updated'], 200);
+        } catch (Exception $e) {
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to update priority', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+    // Fetching Request Details
+
+    public function getRequestDetails(int $supportRequestId)
+    {
+        try {
+            $details = $this->supportRequestModel->fetchRequestDetails($supportRequestId);
+            return ResponseHandler::sendResponse('success', ['details' => $details], 200);
+        } catch (Exception $e) {
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch details', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getRequestHistory(int $supportRequestId)
+    {
+        try {
+            $history = $this->supportRequestModel->fetchRequestHistory($supportRequestId);
+            return ResponseHandler::sendResponse('success', ['history' => $history], 200);
+        } catch (Exception $e) {
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch history', 'errMsg' => $e->getMessage()], 500);
+        }
+    }
+
+
+    // // Creating a New Request
+// public function createSupportRequest() {
+//     $input = json_decode(file_get_contents('php://input'), true);
+//     try {
+//         $supportRequestId = $this->supportRequestModel->createSupportRequest($input);
+//         return ResponseHandler::sendResponse('success', ['support_request_id' => $supportRequestId], 201);
+//     } catch (Exception $e) {
+//         return ResponseHandler::sendResponse('error', ['message' => 'Failed to create support request'], 500);
+//     }
+// }
 
 
 

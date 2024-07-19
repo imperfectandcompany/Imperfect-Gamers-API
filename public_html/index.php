@@ -529,13 +529,150 @@ $router->add('/support/requests/issues/:issueId/versions', 'SupportRequestContro
 // Fetch historical versions of a specific issue
 $router->add('/support/requests/issues/:issueId/versions/history', 'SupportRequestController@handleFetchIssueVersionHistory', 'GET');
 
-
-
 // Fetch specific support request versions
 $router->add('/support/requests/:supportRequestId/versions', 'SupportRequestController@handleFetchSupportRequestVersions', 'GET');
 
 // Fetch historical versions of a specific support request
 $router->add('/support/requests/:supportRequestId/versions/history', 'SupportRequestController@handleFetchSupportRequestVersionHistory', 'GET');
+
+
+
+
+
+
+
+// Routes for categories
+$router->add('/support/requests/categories', 'SupportRequestController@handleCreateCategory', 'POST');
+$router->enforceParameters('/support/requests/categories', 'POST', [
+    'name' => 'body',
+    'parent_id' => 'body',
+    'default_priority' => 'body'
+]);
+$router->addDocumentation('/support/requests/categories', 'POST', 'Creates a new support request category.');
+
+$router->add('/support/requests/categories/:categoryId', 'SupportRequestController@handleUpdateCategory', 'PUT');
+$router->enforceParameters('/support/requests/categories/:categoryId', 'PUT', [
+    'name' => 'body',
+    'parent_id' => 'body',
+    'default_priority' => 'body'
+]);
+$router->addDocumentation('/support/requests/categories/:categoryId', 'PUT', 'Updates a support request category.');
+
+$router->add('/support/requests/categories/:categoryId', 'SupportRequestController@handleDeleteCategory', 'DELETE');
+$router->addDocumentation('/support/requests/categories/:categoryId', 'DELETE', 'Deletes a support request category.');
+
+// Routes for inputs
+$router->add('/support/requests/inputs', 'SupportRequestController@handleCreateInput', 'POST');
+$router->enforceParameters('/support/requests/inputs', 'POST', [
+    'category_id' => 'body',
+    'type' => 'body',
+    'label' => 'body'
+]);
+$router->addDocumentation('/support/requests/inputs', 'POST', 'Creates a new input for support requests.');
+
+$router->add('/support/requests/inputs/:inputId', 'SupportRequestController@handleUpdateInput', 'PUT');
+$router->enforceParameters('/support/requests/inputs/:inputId', 'PUT', [
+    'category_id' => 'body',
+    'type' => 'body',
+    'label' => 'body'
+]);
+$router->addDocumentation('/support/requests/inputs/:inputId', 'PUT', 'Updates an input for support requests.');
+
+$router->add('/support/requests/inputs/:inputId', 'SupportRequestController@handleDeleteInput', 'DELETE');
+$router->addDocumentation('/support/requests/inputs/:inputId', 'DELETE', 'Deletes an input for support requests.');
+
+// Routes for handling support requests
+$router->add('/support/requests', 'SupportRequestController@handleCreateSupportRequest', 'POST');
+$router->enforceParameters('/support/requests', 'POST', [
+    'category_id' => 'body',
+    'email' => 'body'
+]);
+$router->addDocumentation('/support/requests', 'POST', 'Creates a new support request.');
+
+$router->add('/support/requests/:supportRequestId', 'SupportRequestController@handleUpdateSupportRequest', 'PUT');
+$router->enforceParameters('/support/requests/:supportRequestId', 'PUT', [
+    'category_id' => 'body',
+    'issue' => 'body',
+    'description' => 'body',
+    'email' => 'body',
+    'status' => 'body',
+    'priority' => 'body'
+]);
+$router->addDocumentation('/support/requests/:supportRequestId', 'PUT', 'Updates a support request.');
+
+
+$router->add('/support/requests/fetch/open', 'SupportRequestController@getOpenRequests', 'GET');
+$router->addDocumentation('/support/requests/fetch/open', 'GET', 'Fetches all open support requests sorted by priority and last updated date.');
+
+$router->add('/support/requests/:supportRequestId/details', 'SupportRequestController@getRequestDetails', 'GET');
+$router->addDocumentation('/support/requests/:supportRequestId/details', 'GET', 'Fetches detailed information for a specific support request.');
+
+$router->add('/support/requests/:supportRequestId/history', 'SupportRequestController@getRequestHistory', 'GET');
+$router->addDocumentation('/support/requests/:supportRequestId/history', 'GET', 'Fetches the version history for a specific support request.');
+
+$router->add('/support/requests/:supportRequestId/status', 'SupportRequestController@updateRequestStatus', 'PUT');
+$router->enforceParameters('/support/requests/:supportRequestId/status', 'PUT', [
+    'status' => 'body'
+]);
+$router->addDocumentation('/support/requests/:supportRequestId/status', 'PUT', 'Updates the status of a specific support request.');
+
+$router->add('/support/requests/:supportRequestId/priority', 'SupportRequestController@updateRequestPriority', 'PUT');
+$router->enforceParameters('/support/requests/:supportRequestId/priority', 'PUT', [
+    'priority' => 'body'
+]);
+$router->addDocumentation('/support/requests/:supportRequestId/priority', 'PUT', 'Updates the priority of a specific support request.');
+
+
+// Add a comment to a support request
+$router->add('/support/requests/:supportRequestId/comments', 'SupportRequestController@handleAddComment', 'POST');
+$router->enforceParameters('/support/requests/:supportRequestId/comments', 'POST', [
+    'comment' => 'body'
+]);
+$router->addDocumentation('/support/requests/:supportRequestId/comments', 'POST', 'Adds a comment to a support request.');
+
+// Fetch comments for a support request
+$router->add('/support/requests/:supportRequestId/comments', 'SupportRequestController@handleFetchComments', 'GET');
+$router->addDocumentation('/support/requests/:supportRequestId/comments', 'GET', 'Fetches comments for a support request.');
+
+$router->add('/support/requests/:supportRequestId', 'SupportRequestController@handleDeleteSupportRequest', 'DELETE');
+$router->addDocumentation('/support/requests/:supportRequestId', 'DELETE', 'Deletes a support request.');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
