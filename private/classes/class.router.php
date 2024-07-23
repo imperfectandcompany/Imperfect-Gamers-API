@@ -4,8 +4,10 @@ include(PRIVATE_FOLDER.'/classes/class.logger.php');
 class Router {
     
     protected $routes = [];
+    
+// TODO THROW ERROR IF LOADED CLASS USERS DUPLICATE CLASS NAME
 
-    public function add($uri, $controller, $requestMethod, $documentation = null)
+public function add($uri, $controller, $requestMethod, $documentation = null)
     {
 
         // Check if the URI is valid
@@ -263,6 +265,11 @@ class Router {
                 $validatedParams = $this->validateParams($controller, $method, $params);
                 if ($validatedParams === false) {
                     //9-10-23 add specific error handling, missing parameter or wrong data type etc.
+                    // TODO:  Make sure to identify what the invalid parameters are
+                    // like is it because we added a route placeholder in the uri that doesnt match the variable of the method etc
+
+                    // TODO: Make sure that if another added route is conflicting with another due to one being a placeholder
+                    // and another thats static we address before running the application
                     $this->handleError("Invalid parameters for route with URI '$url'.");
                     return;
                 }
@@ -281,11 +288,17 @@ class Router {
                 if ($requestMethod === $httpMethod) {
                     // Extract parameters from different sources (e.g., URL, body)
                     $routeBodyParams = [];
+                                                    // Extract parameters from the request body (e.g., JSON)
+                                                    $postBody = json_decode(file_get_contents("php://input"));
                     foreach ($routeParams as $paramName => $source) {
                         switch ($source) {
                             case 'body':
-                                // Extract parameters from the request body (e.g., JSON)
-                                $postBody = json_decode(file_get_contents("php://input"));
+                                if ($postBody === null) {
+                                    // Handle the case where the request body is null
+                                    $this->handleError("Request body is null. Missing mandatory parameters: " . implode(", ", array_keys($routeParams)));
+                                    return;
+                                }
+
                                 if (property_exists($postBody, $paramName)) {
                                     $routeBodyParams[$paramName] = $postBody->$paramName;
                                 } else {
@@ -325,7 +338,7 @@ class Router {
         if (DEVMODE) {
             echo "Error: $message";
         } else {
-            echo "Error: Route not found.";
+            echo $message;
         }
     }
 

@@ -408,6 +408,11 @@ class DatabaseConnector
         return $this->runQuery("update", $query, $filter_params);
     }
 
+    public function lastInsertId()
+    {
+        return $this->dbConnection->lastInsertId();
+    }
+
     /**
      * Deletes data from a specified table, filtered as specified.
      *
@@ -442,21 +447,16 @@ class DatabaseConnector
                 }
             }
             $stmt->execute();
+
             switch ($type) {
                 case "single":
                     return array("count" => $stmt->rowCount(), "result" => $stmt->fetch());
-                    break;
                 case "insert": //insert
                     return array("insertID" => $this->dbConnection->lastInsertId());
-                    break;
                 case "update": //insert
                     return array("insertID" => $this->dbConnection->lastInsertId());
-                    return true;
-                    break;
                 case "delete": //insert
                     return array("insertID" => $this->dbConnection->lastInsertId());
-                    return true;
-                    break;
                 default:
                     throw new Exception('No query type was specified.');
             }

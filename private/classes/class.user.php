@@ -100,6 +100,33 @@ class User
         }
     }
 
+
+
+    public function isSteamIdLinked($steam_id_64)
+    {
+
+        if (!$this->isValidSteamID($steam_id_64)) {
+            throw new Exception("Invalid Steam ID.");
+        }
+
+        try {
+            // Query to check if the Steam ID is linked to any user
+            $query = 'SELECT user_id FROM profiles WHERE steam_id_64 = :steam_id';
+            $params = array(':steam_id' => $steam_id_64);
+            $result = $this->dbObject->query($query, $params);
+
+            // Check if a user ID was found
+            if (!empty($result) && isset($result[0]['user_id'])) {
+                return true;
+            } else {
+                return false;
+            }
+        } catch (Exception $e) {
+            throw new Exception('An unexpected error occurred while checking the Steam ID.');
+        }
+    }
+
+
     /**
      * Links a Steam account ID to a user's profile.
      *

@@ -126,7 +126,7 @@ class UserController
                     throwWarning('Username not found');
                     $this->logger->log(0, 'authentication_failed', 'User not found');
                     // Return an error if the user cannot be found
-                    ResponseHandler::sendResponse('error', ['message' => "User not found'."], ERROR_NOT_FOUND);
+                    ResponseHandler::sendResponse('error', ['message' => "User not found."], ERROR_NOT_FOUND);
                     return false;
                 }
             }
@@ -316,6 +316,22 @@ class UserController
         return $result;
     }
 
+    public function checkSteamLinked(int $steam_id_64)
+    {
+        try {
+            $user = new User($this->dbConnection);
+            $isLinked = $user->isSteamIdLinked($steam_id_64);
+
+            if ($isLinked) {
+                ResponseHandler::sendResponse('success', ['linked' => true, 'message' => 'Steam ID is already linked to a user.'], 200);
+            } else {
+                ResponseHandler::sendResponse('success', ['linked' => false, 'message' => 'Steam ID is not linked to any user.'], 200);
+            }
+        } catch (Exception $e) {
+            $this->logger->log('error', 'checkSteamLinked_error', ['error_message' => $e->getMessage()]);
+            ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
+        }
+    }
 
 
     public function checkSteamLink()
@@ -341,6 +357,8 @@ class UserController
             ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
         }
     }
+
+
 
     /**
      * Links a Steam account to the user's profile.
