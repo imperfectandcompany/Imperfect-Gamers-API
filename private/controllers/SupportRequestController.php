@@ -46,22 +46,22 @@ class SupportRequestController
         return $this->supportRequestModel->fetchInputsAndIssueForCategory($categoryId);
     }
 
-    // Handles fetching all categories
-    public function handleFetchAllCategories()
-    {
-        try {
-            $categories = $this->fetchAllCategories();
-            return ResponseHandler::sendResponse('success', ['data' => $categories], 200);
-        } catch (Exception $e) {
-            $this->logger->log('error', 'fetch_all_categories_error', ['error' => $e->getMessage()]);
-            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch all categories'], 500);
-        }
+// Handles fetching all categories
+public function handleFetchAllCategories()
+{
+    try {
+        $categories = $this->fetchAllCategories();
+        return ResponseHandler::sendResponse('success', ['data' => $categories], 200);
+    } catch (Exception $e) {
+        $this->logger->log('error', 'fetch_all_categories_error', ['error' => $e->getMessage()]);
+        return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch all categories', 'error' => $e->getMessage()], 500);
     }
+}
 
-    private function fetchAllCategories()
-    {
-        return $this->supportRequestModel->fetchAllLevelCategories();
-    }
+private function fetchAllCategories()
+{
+    return $this->supportRequestModel->fetchAllLevelCategories();
+}
 
     // Handles fetching all request form data
     public function handleFetchAllRequestFormData()
@@ -242,42 +242,131 @@ class SupportRequestController
 
 
     // Fetch specific issue versions
-    public function handleFetchIssueVersions($issueId)
+    public function handleFetchIssueVersions(int $issueId)
     {
         try {
             $issueVersions = $this->fetchIssueVersions($issueId);
             return ResponseHandler::sendResponse('success', ['data' => $issueVersions], 200);
         } catch (Exception $e) {
             $this->logger->log('error', 'fetch_issue_versions_error', ['error' => $e->getMessage()]);
-            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch issue versions'], 500);
+            return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
         }
     }
+
 
     private function fetchIssueVersions($issueId)
     {
         return $this->supportRequestModel->fetchIssueVersions($issueId);
     }
 
-    // Fetch historical versions of a specific issue
+
+    public function handleFetchInputs()
+{
+    try {
+        $inputs = $this->supportRequestModel->fetchAllInputs();
+        return ResponseHandler::sendResponse('success', ['data' => $inputs], 200);
+    } catch (Exception $e) {
+        $this->logger->log('error', 'fetch_inputs_error', ['error' => $e->getMessage()]);
+        return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
+    }
+}
+
+    // Handles fetching issue version history
     public function handleFetchIssueVersionHistory($issueId)
     {
         try {
-            $issueHistory = $this->fetchIssueVersionHistory($issueId);
-            return ResponseHandler::sendResponse('success', ['data' => $issueHistory], 200);
+            $history = $this->supportRequestModel->fetchIssueVersionHistory($issueId);
+            return ResponseHandler::sendResponse('success', ['data' => $history], 200);
         } catch (Exception $e) {
             $this->logger->log('error', 'fetch_issue_version_history_error', ['error' => $e->getMessage()]);
-            return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch issue version history'], 500);
+            return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
         }
     }
 
-    private function fetchIssueVersionHistory($issueId)
+
+
+    // Handles creating a new issue
+    public function handleCreateIssue()
     {
-        return $this->supportRequestModel->fetchIssueVersionHistory($issueId);
+        $input = json_decode(file_get_contents('php://input'), true);
+
+    // Validate that category_id and description are present
+    if (empty($input['category_id']) || empty($input['description'])) {
+        return ResponseHandler::sendResponse('error', ['message' => 'Category ID and description are required'], 400);
+    }
+
+        try {
+            $issueId = $this->supportRequestModel->createIssue($input);
+            return ResponseHandler::sendResponse('success', ['issue_id' => $issueId], 201);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'create_issue_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to create issue', 'errMsg' => $e->getMessage()], 500);
+        }
     }
 
 
+        // Handles deleting an issue
+        public function handleDeleteIssue($issueId)
+        {
+            try {
+                $this->supportRequestModel->deleteIssue($issueId);
+                return ResponseHandler::sendResponse('success', ['message' => 'Issue deleted'], 200);
+            } catch (Exception $e) {
+                $this->logger->log('error', 'delete_issue_error', ['error' => $e->getMessage()]);
+                return ResponseHandler::sendResponse('error', ['message' => 'Failed to delete issue', 'errMsg' => $e->getMessage()], 500);
+            }
+        }
+
+        // Handles fetching issue categories
+        public function handleFetchIssueCategories()
+        {
+            try {
+                $categories = $this->supportRequestModel->fetchIssueCategories();
+                return ResponseHandler::sendResponse('success', ['data' => $categories], 200);
+            } catch (Exception $e) {
+                $this->logger->log('error', 'fetch_issue_categories_error', ['error' => $e->getMessage()]);
+                return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
+            }
+        }
 
 
+        public function handlePopulateForm() {
+            try {
+                $data = $this->supportRequestModel->getFormData();
+                return ResponseHandler::sendResponse('success', $data, 200);
+            } catch (Exception $e) {
+                $this->logger->log('error', 'populate_form_error', ['error' => $e->getMessage()]);
+                return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
+            }
+        }
+
+        public function handlePopulateCategory($categoryId) {
+            try {
+                $data = $this->supportRequestModel->getCategoryDetails($categoryId);
+                return ResponseHandler::sendResponse('success', $data, 200);
+            } catch (Exception $e) {
+                $this->logger->log('error', 'populate_category_error', ['error' => $e->getMessage()]);
+                return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
+            }
+        }
+
+
+        public function handleUpdateIssue($issueId)
+        {
+            $input = json_decode(file_get_contents('php://input'), true);
+            try {
+                $this->supportRequestModel->updateIssue($issueId, $input);
+                return ResponseHandler::sendResponse('success', ['message' => 'Issue updated'], 200);
+            } catch (Exception $e) {
+                $this->logger->log('error', 'update_issue_error', ['error' => $e->getMessage()]);
+                return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
+            }
+        }
+
+
+
+
+        
 
     // Fetch specific support request versions
     public function handleFetchSupportRequestVersions($supportRequestId)
@@ -329,12 +418,19 @@ class SupportRequestController
 
 
 
-
-
-
     public function handleCreateCategory()
     {
         $input = json_decode(file_get_contents('php://input'), true);
+    
+        // Ensure parent_id and default_priority are optional
+        $input['parent_id'] = isset($input['parent_id']) ? $input['parent_id'] : null;
+        $input['default_priority'] = isset($input['default_priority']) ? $input['default_priority'] : null;
+    
+        // Validate that the name is not empty
+        if (empty($input['name'])) {
+            return ResponseHandler::sendResponse('error', ['message' => 'Category name cannot be empty'], 400);
+        }
+    
         try {
             $categoryId = $this->supportRequestModel->createCategory($input);
             return ResponseHandler::sendResponse('success', ['category_id' => $categoryId], 201);
@@ -343,7 +439,7 @@ class SupportRequestController
             return ResponseHandler::sendResponse('error', ['message' => 'Failed to create category', 'errMsg' => $e->getMessage()], 500);
         }
     }
-
+    
     public function handleUpdateCategory($categoryId)
     {
         $input = json_decode(file_get_contents('php://input'), true);
@@ -355,7 +451,9 @@ class SupportRequestController
             return ResponseHandler::sendResponse('error', ['message' => 'Failed to update category', 'errMsg' => $e->getMessage()], 500);
         }
     }
+    
 
+    
     public function handleDeleteCategory($categoryId)
     {
         try {
@@ -369,25 +467,55 @@ class SupportRequestController
 
     public function handleCreateInput()
     {
-        $input = json_decode(file_get_contents('php://input'), true);
         try {
-            $inputId = $this->supportRequestModel->createInput($input);
-            return ResponseHandler::sendResponse('success', ['input_id' => $inputId], 201);
+            $inputData = json_decode(file_get_contents('php://input'), true);
+            if (!isset($inputData['category_id']) || !isset($inputData['label']) || !isset($inputData['type'])) {
+                throw new Exception("Missing required fields.");
+            }
+    
+            if (($inputData['type'] === 'dropdown' || $inputData['type'] === 'radio') && empty($inputData['options'])) {
+                throw new Exception("Options are required for dropdown and radio types.");
+            }
+    
+            $newInputId = $this->supportRequestModel->createInputWithOptions($inputData);
+            return ResponseHandler::sendResponse('success', ['input_id' => $newInputId], 201);
         } catch (Exception $e) {
             $this->logger->log('error', 'create_input_error', ['error' => $e->getMessage()]);
-            return ResponseHandler::sendResponse('error', ['message' => 'Failed to create input'], 500);
+            return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
+        }
+    }
+    
+
+    public function handleCreateInputOptions()
+    {
+        try {
+            $inputData = json_decode(file_get_contents('php://input'), true);
+            if (!isset($inputData['input_id']) || !isset($inputData['options']) || !is_array($inputData['options'])) {
+                throw new Exception("Missing required fields.");
+            }
+    
+            $this->supportRequestModel->createInputOptions($inputData);
+            return ResponseHandler::sendResponse('success', [], 201);
+        } catch (Exception $e) {
+            $this->logger->log('error', 'create_input_options_error', ['error' => $e->getMessage()]);
+            return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
         }
     }
 
+    // Update an existing input
     public function handleUpdateInput($inputId)
     {
-        $input = json_decode(file_get_contents('php://input'), true);
         try {
-            $this->supportRequestModel->updateInput($inputId, $input);
-            return ResponseHandler::sendResponse('success', ['message' => 'Input updated'], 200);
+            $inputData = json_decode(file_get_contents('php://input'), true);
+            if (!isset($inputData['category_id']) || !isset($inputData['label']) || !isset($inputData['type'])) {
+                throw new Exception("Missing required fields.");
+            }
+
+            $this->supportRequestModel->updateInput($inputId, $inputData);
+            return ResponseHandler::sendResponse('success', [], 200);
         } catch (Exception $e) {
             $this->logger->log('error', 'update_input_error', ['error' => $e->getMessage()]);
-            return ResponseHandler::sendResponse('error', ['message' => 'Failed to update input', 'errMsg' => $e->getMessage()], 500);
+            return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
         }
     }
 
@@ -406,34 +534,54 @@ class SupportRequestController
 
     public function handleCreateSupportRequest()
     {
-        $input = json_decode(file_get_contents('php://input'), true);
+        $data = json_decode(file_get_contents('php://input'), true);
+
+        $email = $data['email'] ?? null;
+        $category_id = $data['category_id'] ?? null;
+
+        if (!$email || !$category_id) {
+            return ResponseHandler::sendResponse('error', ['message' => 'Missing required fields'], 400);
+        }
+
         try {
             // Fetch dynamic inputs based on category
-            $categoryId = $input['category_id'];
-            $dynamicInputs = $this->supportRequestModel->fetchDynamicInputsByCategory($categoryId);
+            $dynamicInputs = $this->supportRequestModel->fetchDynamicInputsByCategory($category_id);
 
             // Validate dynamic inputs
-            $validationErrors = $this->validateDynamicInputs($dynamicInputs, $input);
+            $validationErrors = $this->validateDynamicInputs($dynamicInputs, $data);
             if (!empty($validationErrors)) {
                 return ResponseHandler::sendResponse('error', ['message' => 'Validation failed', 'errors' => $validationErrors], 400);
             }
 
             // Create support request
-            $supportRequestId = $this->supportRequestModel->createSupportRequest($input, $dynamicInputs);
+            $supportRequestId = $this->supportRequestModel->createSupportRequest($data, $dynamicInputs);
             return ResponseHandler::sendResponse('success', ['support_request_id' => $supportRequestId], 201);
         } catch (Exception $e) {
             $this->logger->log('error', 'create_support_request_error', ['error' => $e->getMessage()]);
             return ResponseHandler::sendResponse('error', ['message' => 'Failed to create support request', 'errMsg' => $e->getMessage()], 500);
         }
     }
-
-    private function validateDynamicInputs($dynamicInputs, $input)
+    
+    private function validateDynamicInputs($dynamicInputs, $data)
     {
         $errors = [];
+        $inputs = $data['inputs'] ?? [];
+
         foreach ($dynamicInputs as $dynamicInput) {
-            $key = $dynamicInput['label'];
-            if (!isset($input[$key]) || empty($input[$key])) {
-                $errors[$key] = 'This field is required.';
+            $key = $dynamicInput['input_id'];
+            $label = $dynamicInput['label'];
+            $value = null;
+
+            // Find the value in the inputs array that matches the input_id
+            foreach ($inputs as $input) {
+                if (isset($input['input_id']) && $input['input_id'] == $key) {
+                    $value = $input['value'];
+                    break;
+                }
+            }
+
+            if (is_null($value) || empty($value)) {
+                $errors[$label] = 'This field is required.';
             }
         }
         return $errors;
@@ -500,15 +648,15 @@ class SupportRequestController
     // Updating Status / Priority
     public function updateRequestStatus(int $supportRequestId)
     {
-        $input = json_decode(file_get_contents('php://input'), true);
+        $data = json_decode(file_get_contents('php://input'), true);
         $allowedStatuses = ['open', 'in progress', 'closed'];
 
-        if (!in_array($input['status'], $allowedStatuses)) {
+        if (!in_array($data['status'], $allowedStatuses)) {
             return ResponseHandler::sendResponse('error', ['message' => 'Invalid Status value'], 400);
         }
 
         try {
-            $this->supportRequestModel->updateStatus($supportRequestId, $input['status']);
+            $this->supportRequestModel->updateStatus($supportRequestId, $data['status']);
             return ResponseHandler::sendResponse('success', ['message' => 'Status updated'], 200);
         } catch (Exception $e) {
             return ResponseHandler::sendResponse('error', ['message' => 'Failed to update Status', 'errMsg' => $e->getMessage()], 500);
@@ -574,42 +722,42 @@ class SupportRequestController
     public function getIssueCategories()
     {
         try {
-            $query = "SELECT
-                    ic.id AS IssueCategoryID,
-                    ic.label AS IssueCategoryLabel,
-                    sc.id AS SubCategoryID,
-                    sc.label AS SubCategoryLabel,
-                    si.id AS SubIssueID,
-                    si.label AS SubIssueLabel,
-                    i.id AS InputID,
-                    i.context_id AS InputContextID,
-                    i.context_type AS InputContextType,
-                    i.label AS InputLabel,
-                    i.type AS InputType,
-                    i.placeholder AS InputPlaceholder,
-                    i.tooltip AS InputTooltip,
-                    v.VersionID,
-                    v.ContextID,
-                    v.ContextType,
-                    v.Label AS VersionLabel,
-                    v.Type AS VersionType,
-                    v.Placeholder AS VersionPlaceholder,
-                    v.Tooltip AS VersionTooltip
-                FROM
-                    IssueCategories ic
-                LEFT JOIN SubCategories sc ON sc.category_id = ic.id AND sc.isArchived = 0 AND sc.DeletedAt IS NULL
-                LEFT JOIN SubIssues si ON si.sub_category_id = sc.id AND si.isArchived = 0 AND si.DeletedAt IS NULL
-                LEFT JOIN Inputs i ON i.context_id = ic.id AND i.context_type = 'Category' AND i.isArchived = 0 AND i.DeletedAt IS NULL
-                LEFT JOIN Versions v ON (
-                    (v.ContextID = ic.id AND v.ContextType = 'Category')
-                    OR (v.ContextID = sc.id AND v.ContextType = 'SubCategory')
-                    OR (v.ContextID = si.id AND v.ContextType = 'SubIssue')
-                    OR (v.ContextID = i.id AND v.ContextType = 'Input')
-                )
-                WHERE
-                    ic.isArchived = 0 AND ic.DeletedAt IS NULL
-                ORDER BY
-                    ic.id, sc.id, si.id, i.id";
+                $query = "SELECT
+                        ic.id AS IssueCategoryID,
+                        ic.label AS IssueCategoryLabel,
+                        sc.id AS SubCategoryID,
+                        sc.label AS SubCategoryLabel,
+                        si.id AS SubIssueID,
+                        si.label AS SubIssueLabel,
+                        i.id AS InputID,
+                        i.context_id AS InputContextID,
+                        i.context_type AS InputContextType,
+                        i.label AS InputLabel,
+                        i.type AS InputType,
+                        i.placeholder AS InputPlaceholder,
+                        i.tooltip AS InputTooltip,
+                        v.VersionID,
+                        v.ContextID,
+                        v.ContextType,
+                        v.Label AS VersionLabel,
+                        v.Type AS VersionType,
+                        v.Placeholder AS VersionPlaceholder,
+                        v.Tooltip AS VersionTooltip
+                    FROM
+                        IssueCategories ic
+                    LEFT JOIN SubCategories sc ON sc.category_id = ic.id AND sc.isArchived = 0 AND sc.DeletedAt IS NULL
+                    LEFT JOIN SubIssues si ON si.sub_category_id = sc.id AND si.isArchived = 0 AND si.DeletedAt IS NULL
+                    LEFT JOIN Inputs i ON i.context_id = ic.id AND i.context_type = 'Category' AND i.isArchived = 0 AND i.DeletedAt IS NULL
+                    LEFT JOIN Versions v ON (
+                        (v.ContextID = ic.id AND v.ContextType = 'Category')
+                        OR (v.ContextID = sc.id AND v.ContextType = 'SubCategory')
+                        OR (v.ContextID = si.id AND v.ContextType = 'SubIssue')
+                        OR (v.ContextID = i.id AND v.ContextType = 'Input')
+                    )
+                    WHERE
+                        ic.isArchived = 0 AND ic.DeletedAt IS NULL
+                    ORDER BY
+                        ic.id, sc.id, si.id, i.id";
 
             // Execute the query
             $result = $this->secondaryConnection->query($query);

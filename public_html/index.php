@@ -187,6 +187,10 @@ $echo = $isLoggedIn ? "Logged in" : "Not logged in";
 // Determine which router to add routes to
 $mutualRoute = $isLoggedIn ? $router : $notAuthenticatedRouter;
 
+
+$mutualRoute->add('/support/requests/populate/all', 'SupportRequestController@handleFetchAllRequestFormData', 'GET');
+
+
 $mutualRoute->add('/infractions', 'InfractionController@getAllInfractions', 'GET');
 $mutualRoute->addDocumentation('/infractions', 'GET', 'Fetches all infractions.');
 
@@ -505,15 +509,18 @@ $router->addDocumentation('/support/support-request', 'POST', 'Submits a support
 
 
 $router->add('/support/requests/populate', 'SupportRequestController@handleFetchAllCategories', 'GET');
-$router->add('/support/requests/populate/all', 'SupportRequestController@handleFetchAllRequestFormData', 'GET');
 $router->add('/support/requests/populate/category/:categoryId', 'SupportRequestController@handleCategorySelection', 'GET');
 
 $router->add('/support/requests/logs', 'SupportRequestController@handleFetchActionLogs', 'GET');
-$router->add('/support/requests/inputs', 'SupportRequestController@handleFetchAllInputs', 'GET');
-$router->add('/support/requests/issues', 'SupportRequestController@handleFetchAllIssues', 'GET');
+// $router->add('/support/requests/inputs', 'SupportRequestController@handleFetchAllInputs', 'GET');
+$router->add('/support/requests/inputs', 'SupportRequestController@handleFetchInputs', 'GET');
 
 $router->add('/support/requests/:supportRequestId', 'SupportRequestController@handleFetchSupportRequest', 'GET');
+
 $router->add('/support/requests', 'SupportRequestController@handleFetchAllSupportRequests', 'GET');
+
+
+
 $router->add('/support/requests/inputs/versions', 'SupportRequestController@handleFetchAllInputVersions', 'GET');
 $router->add('/support/requests/categories/hierarchy', 'SupportRequestController@handleFetchCategoriesHierarchy', 'GET');
 
@@ -523,11 +530,7 @@ $router->add('/support/requests/categories/:categoryId/versions', 'SupportReques
 // Fetch historical versions of a specific category
 $router->add('/support/requests/categories/:categoryId/versions/history', 'SupportRequestController@handleFetchCategoryVersionHistory', 'GET');
 
-// Fetch a specific issue's versions
-$router->add('/support/requests/issues/:issueId/versions', 'SupportRequestController@handleFetchIssueVersions', 'GET');
 
-// Fetch historical versions of a specific issue
-$router->add('/support/requests/issues/:issueId/versions/history', 'SupportRequestController@handleFetchIssueVersionHistory', 'GET');
 
 // Fetch specific support request versions
 $router->add('/support/requests/:supportRequestId/versions', 'SupportRequestController@handleFetchSupportRequestVersions', 'GET');
@@ -537,6 +540,10 @@ $router->add('/support/requests/:supportRequestId/versions/history', 'SupportReq
 
 
 
+$router->add('/support/requests/populate/form', 'SupportRequestController@handleFetchAllCategories', 'GET');
+
+$router->add('/support/requests/populate/category/{categoryId}', 'SupportRequestController@handlePopulateCategory', 'GET');
+
 
 
 
@@ -545,16 +552,18 @@ $router->add('/support/requests/:supportRequestId/versions/history', 'SupportReq
 $router->add('/support/requests/categories', 'SupportRequestController@handleCreateCategory', 'POST');
 $router->enforceParameters('/support/requests/categories', 'POST', [
     'name' => 'body',
-    'parent_id' => 'body',
-    'default_priority' => 'body'
+    // 'parent_id' => 'body', // This will be optional in the controller logic
+    // 'default_priority' => 'body' // This will be optional in the controller logic
 ]);
 $router->addDocumentation('/support/requests/categories', 'POST', 'Creates a new support request category.');
 
+$router->add('/support/requests/populate/categories', 'SupportRequestController@handleFetchIssueCategories', 'GET');
+
 $router->add('/support/requests/categories/:categoryId', 'SupportRequestController@handleUpdateCategory', 'PUT');
 $router->enforceParameters('/support/requests/categories/:categoryId', 'PUT', [
-    'name' => 'body',
-    'parent_id' => 'body',
-    'default_priority' => 'body'
+    // 'name' => 'body',
+    // 'parent_id' => 'body', // This will be optional in the controller logic
+    // 'default_priority' => 'body' // This will be optional in the controller logic
 ]);
 $router->addDocumentation('/support/requests/categories/:categoryId', 'PUT', 'Updates a support request category.');
 
@@ -581,6 +590,27 @@ $router->addDocumentation('/support/requests/inputs/:inputId', 'PUT', 'Updates a
 $router->add('/support/requests/inputs/:inputId', 'SupportRequestController@handleDeleteInput', 'DELETE');
 $router->addDocumentation('/support/requests/inputs/:inputId', 'DELETE', 'Deletes an input for support requests.');
 
+$router->add('/support/requests/input-options', 'SupportRequestController@handleCreateInputOptions', 'POST');
+
+// Routes for issues
+$router->add('/support/requests/issues/all', 'SupportRequestController@handleFetchAllIssues', 'GET');
+// Fetch a specific issue's versions
+$router->add('/support/requests/issues/:issueId/versions', 'SupportRequestController@handleFetchIssueVersions', 'GET');
+// Fetch historical versions of a specific issue
+$router->add('/support/requests/issues/:issueId/versions/history', 'SupportRequestController@handleFetchIssueVersionHistory', 'GET');
+// $router->add('/support/issue-categories', 'SupportRequestController@handleFetchIssueCategories', 'GET');
+$router->add('/support/requests/issues', 'SupportRequestController@handleCreateIssue', 'POST');
+$router->enforceParameters('/support/requests/issues', 'POST', [
+    'category_id' => 'body',
+    'description' => 'body',
+]);
+$router->add('/support/requests/issues/:issueId', 'SupportRequestController@handleDeleteIssue', 'DELETE');
+$router->add('/support/requests/issues/:issueId', 'SupportRequestController@handleUpdateIssue', 'PUT');
+$router->addDocumentation('/support/requests/issues/:issueId', 'PUT', 'Updates an existing issue.');
+
+
+
+
 // Routes for handling support requests
 $router->add('/support/requests', 'SupportRequestController@handleCreateSupportRequest', 'POST');
 $router->enforceParameters('/support/requests', 'POST', [
@@ -588,6 +618,15 @@ $router->enforceParameters('/support/requests', 'POST', [
     'email' => 'body'
 ]);
 $router->addDocumentation('/support/requests', 'POST', 'Creates a new support request.');
+
+// Routes for handling support requests
+$router->add('/support/requests/submit', 'SupportRequestController@handleCreateSupportRequest', 'POST');
+$router->enforceParameters('/support/requests', 'POST', [
+    'category_id' => 'body',
+    'email' => 'body'
+]);
+$router->addDocumentation('/support/requests', 'POST', 'Creates a new support request.');
+
 
 $router->add('/support/requests/:supportRequestId', 'SupportRequestController@handleUpdateSupportRequest', 'PUT');
 $router->enforceParameters('/support/requests/:supportRequestId', 'PUT', [
@@ -637,10 +676,7 @@ $router->addDocumentation('/support/requests/:supportRequestId/comments', 'GET',
 $router->add('/support/requests/:supportRequestId', 'SupportRequestController@handleDeleteSupportRequest', 'DELETE');
 $router->addDocumentation('/support/requests/:supportRequestId', 'DELETE', 'Deletes a support request.');
 
-
-
-
-
+// TODO ADD ERROR HANDLING FOR WHEN MULTIPLE OF THE SAME CONTROLLER FUNCTION NAMES EXIST FOR THE ADDED ROUTE DEFINED CONTROLLER METHOD
 
 
 
