@@ -190,7 +190,6 @@ class SupportController
 
         // Extract data from the request body
         $categoryTitle = $data['categoryTitle'] ?? null;
-
         $userId = $GLOBALS['user_id']; // identify the current user
 
         if ($categoryTitle === null) {
@@ -198,11 +197,10 @@ class SupportController
         }
 
         try {
+            $newVersionId = $this->supportModel->updateCategory($categoryId, $categoryTitle, $userId);
 
-            $result = $this->supportModel->updateCategory($categoryId, $categoryTitle, $userId);
-
-            if ($result) {
-                return ResponseHandler::sendResponse('success', ['message' => 'Category updated successfully'], 200);
+            if ($newVersionId) {
+                return ResponseHandler::sendResponse('success', ['message' => 'Category updated successfully', 'versionID' => $newVersionId], 200);
             } else {
                 return ResponseHandler::sendResponse('error', ['message' => 'Failed to update category'], 500);
             }
@@ -211,6 +209,7 @@ class SupportController
             return ResponseHandler::sendResponse('error', ['message' => 'Failed to update category'], 500);
         }
     }
+
 
     public function updateArticle($articleId)
     {
@@ -224,9 +223,9 @@ class SupportController
         $imgSrc = $data['imgSrc'] ?? null; // Assuming 'imgSrc' is optional
 
         try {
-            $result = $this->supportModel->updateArticle($articleId, $categoryId, $title, $description, $detailedDescription, $imgSrc);
-            if ($result) {
-                return ResponseHandler::sendResponse('success', ['message' => 'Article updated successfully'], 200);
+            $newVersionId = $this->supportModel->updateArticle($articleId, $categoryId, $title, $description, $detailedDescription, $imgSrc);
+            if ($newVersionId) {
+                return ResponseHandler::sendResponse('success', ['message' => 'Article updated successfully', 'versionID' => $newVersionId], 200);
             } else {
                 return ResponseHandler::sendResponse('error', ['message' => 'Failed to update article'], 500);
             }
@@ -239,9 +238,9 @@ class SupportController
     public function archiveArticle($articleId)
     {
         try {
-            $result = $this->supportModel->archiveArticle($articleId);
-            if ($result) {
-                return ResponseHandler::sendResponse('success', ['message' => 'Article archived successfully'], 200);
+            $newVersionId = $this->supportModel->archiveArticle($articleId);
+            if ($newVersionId) {
+                return ResponseHandler::sendResponse('success', ['message' => 'Article archived successfully', 'versionID' => $newVersionId], 200);
             } else {
                 return ResponseHandler::sendResponse('error', ['message' => 'Failed to archive article'], 500);
             }
@@ -254,9 +253,9 @@ class SupportController
     public function toggleArticleStaffOnly($articleId)
     {
         try {
-            $result = $this->supportModel->toggleArticleStaffOnly($articleId);
-            if ($result) {
-                return ResponseHandler::sendResponse('success', ['message' => 'Article marked as staff-only successfully'], 200);
+            $newVersionId = $this->supportModel->toggleArticleStaffOnly($articleId);
+            if ($newVersionId) {
+                return ResponseHandler::sendResponse('success', ['message' => 'Article marked as staff-only successfully', 'versionID' => $newVersionId], 200);
             } else {
                 return ResponseHandler::sendResponse('error', ['message' => 'Failed to mark article as staff-only'], 500);
             }
@@ -314,13 +313,19 @@ class SupportController
     public function fetchCategoryVersions($categoryId)
     {
         try {
-            $versions = $this->supportModel->fetchCategoryVersions($categoryId);
-            return ResponseHandler::sendResponse('success', ['versions' => $versions], 200);
+            // Fetch the current version and historical versions
+            $versionsData = $this->supportModel->fetchCategoryVersions($categoryId);
+            $currentVersion = $versionsData['currentVersion'];
+            $historicalVersions = $versionsData['historicalVersions'];
+
+            return ResponseHandler::sendResponse('success', ['currentVersion' => $currentVersion, 'versions' => $historicalVersions], 200);
+
         } catch (Exception $e) {
             $this->logger->log('error', 'fetch_category_versions_error', ['error' => $e->getMessage()]);
             return ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch category versions'], 500);
         }
     }
+
 
 
     public function fetchArticleActionLogs($articleId)

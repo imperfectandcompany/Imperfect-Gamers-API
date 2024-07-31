@@ -1,0 +1,5 @@
+ private/classes/class.database.php        |   2 +
+ private/classes/class.support.php         | 249 +++++++++++++++++++++++-------
+ private/controllers/SupportController.php |  37 +++--
+ public_html/index.php                     |  32 +++-
+ 4 files changed, 245 insertions(+), 75 deletions(-)

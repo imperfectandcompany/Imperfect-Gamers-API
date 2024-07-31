@@ -400,7 +400,6 @@ $router->addDocumentation('/premium/steamExists/:steamId', 'GET', 'Checks if a s
 
 // if the user is authenticated, use that instance of the Router class and dispatch the incoming request
 
-
 // ## FOR SUPPORT.IMPERFECTGAMERS.ORG
 
 // Route to create a new category
@@ -661,7 +660,6 @@ $router->enforceParameters('/support/requests/:supportRequestId/priority', 'PUT'
 ]);
 $router->addDocumentation('/support/requests/:supportRequestId/priority', 'PUT', 'Updates the priority of a specific support request.');
 
-
 // Add a comment to a support request
 $router->add('/support/requests/:supportRequestId/comments', 'SupportRequestController@handleAddComment', 'POST');
 $router->enforceParameters('/support/requests/:supportRequestId/comments', 'POST', [
@@ -681,21 +679,43 @@ $router->addDocumentation('/support/requests/:supportRequestId', 'DELETE', 'Dele
 
 
 
+// $router->add('/admin/media', 'AdminMediaController@index', 'GET');
+// $router->add('/admin/media/upload', 'AdminMediaController@upload', 'POST');
+// $router->add('/admin/media/logs', 'AdminMediaController@logs', 'GET');
+// $router->add('/admin/media/view/{id}', 'AdminMediaController@viewMedia', 'GET');
+// $router->add('/admin/media/delete/{id}', 'AdminMediaController@deleteMedia', 'DELETE');
+
+$router->add('/media/upload', 'MediaController@createMedia', 'POST');
+$router->addDocumentation('/media/upload', 'POST', 'Uploads a new media file.');
+
+$router->add('/media/folder/create', 'MediaController@createFolder', 'POST');
+$router->addDocumentation('/media/folder/create', 'POST', 'Creates a new folder for organizing media files.');
+
+$router->add('/media/all', 'MediaController@getAllMedia', 'GET');
+$router->addDocumentation('/media/all', 'GET', 'Fetches all media files.');
+
+$router->add('/media/update', 'MediaController@updateMedia', 'POST');
+$router->addDocumentation('/media/update', 'POST', 'Updates an existing media file.');
+
+$router->add('/media/delete', 'MediaController@deleteMedia', 'POST');
+$router->addDocumentation('/media/delete', 'POST', 'Deletes a media file by moving it to a deleted folder.');
+
+$router->add('/media/single/:media_id', 'MediaController@getMediaById', 'GET');
+$router->addDocumentation('/media/single/:media_id', 'GET', 'Fetches details of a specific media file.');
+
+$router->add('/media/folder/fetch/:folder_id', 'MediaController@getFolderContents', 'GET');
+$router->addDocumentation('/media/folder/fetch/:folder_id', 'GET', 'Fetches all media files and subfolders within a specific folder.');
+
+$router->add('/media/top-level', 'MediaController@getTopLevelFoldersAndRootMedia', 'GET');
+$router->addDocumentation('/media/top-level', 'GET', 'Fetches the top-level folders and media items in the root directory.');
+
+$router->add('/media/logs', 'MediaController@getMediaLogs', 'GET');
+$router->addDocumentation('/media/logs', 'GET', 'Fetches logs for media actions.');
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+ // Routes for folders
+// $router->add('/media/folder/create', 'MediaController@createFolder', 'POST');
+// $router->addDocumentation('/media/folder/create', 'POST', 'Creates a new media folder.');
 
 
 

@@ -231,9 +231,8 @@ class Support
             if ($updateResult) {
 
                 // log the update in a CategoryActionLog
-                $this->logCategoryAction($userId, $categoryId, self::CATEGORY_UPDATED);
-
-                return true;
+                $this->logCategoryAction($userId, $newVersionId, self::CATEGORY_UPDATED);
+                return $newVersionId; // Return the new version ID
             } else {
                 throw new Exception("Failed to update category. Ensure common data integrity points and try again.");
             }
@@ -266,15 +265,16 @@ class Support
         }
     }
 
-
-    public function createCategoryVersion($categoryId, $title)
+    public function createCategoryVersion($categoryId, $title, $isDeleted = 0)
     {
-        $versionData = json_encode(['title' => $title]);
+        // Determine if the DeletedAt timestamp should be set
+        $deletedAt = $isDeleted ? date('Y-m-d H:i:s') : null;
+    
         $table = "CategoryVersions";
-        $rows = "CategoryID, Title";
-        $values = "?, ?";
-        $params = makeFilterParams([$categoryId, $title]);
-
+        $rows = "CategoryID, Title, DeletedAt";
+        $values = "?, ?, ?";
+        $params = makeFilterParams([$categoryId, $title, $deletedAt]);
+    
         try {
             $addResult = $this->supportSiteDb->insertData($table, $rows, $values, $params);
             if ($addResult) {
@@ -286,12 +286,96 @@ class Support
             throw new PDOException('Failed to create category version: ' . $e->getMessage());
         }
     }
-
+    
     public function fetchCategoryVersions($categoryId)
     {
-        $query = "SELECT * FROM CategoryVersions WHERE CategoryID = :categoryId ORDER BY CreatedAt DESC";
-        $params = [':categoryId' => $categoryId];
-        return $this->supportSiteDb->query($query, $params);
+        // Query to get the current version ID from the Categories table
+        $currentVersionIdQuery = "SELECT 
+                VersionID 
+            FROM 
+                Categories 
+            WHERE 
+                CategoryID = :categoryId
+            LIMIT 1
+        ";
+        
+        // Execute the query to get the current version ID
+        $currentVersionIdResult = $this->supportSiteDb->query($currentVersionIdQuery, [':categoryId' => $categoryId]);
+        $currentVersionId = $currentVersionIdResult[0]['VersionID'] ?? null;
+        
+        // Query to get the current version details from the CategoryVersions table
+        $currentVersionQuery = "SELECT 
+                cv.*, 
+                (SELECT COUNT(*) 
+                 FROM Articles a 
+                 WHERE a.VersionID IN (
+                     SELECT av.VersionID 
+                     FROM ArticleVersions av 
+                     WHERE av.ArticleID = a.ArticleID 
+                     AND av.CategoryID = cv.CategoryID 
+                     AND (av.DeletedAt IS NULL)
+                 )
+                ) AS ArticleCount
+            FROM 
+                CategoryVersions cv
+            WHERE 
+                cv.VersionID = :versionId
+            LIMIT 1
+        ";
+        
+        // Query to get the historical versions excluding the current version
+        $historicalVersionsQuery = "SELECT 
+                cv.*, 
+                COUNT(DISTINCT av.ArticleID) AS ArticleCount 
+            FROM 
+                CategoryVersions cv
+            LEFT JOIN 
+                (SELECT 
+                    av.ArticleID, 
+                    av.CategoryID,
+                    av.CreatedAt,
+                    av.DeletedAt
+                 FROM 
+                    ArticleVersions av
+                 INNER JOIN 
+                    (SELECT 
+                        ArticleID, 
+                        MAX(CreatedAt) AS MaxCreatedAt
+                     FROM 
+                        ArticleVersions 
+                     WHERE 
+                        CategoryID = :categoryId1
+                     GROUP BY 
+                        ArticleID) AS LatestArticleVersions
+                 ON 
+                    av.ArticleID = LatestArticleVersions.ArticleID 
+                    AND av.CreatedAt = LatestArticleVersions.MaxCreatedAt
+                ) AS av 
+            ON 
+                cv.CategoryID = av.CategoryID 
+                AND av.CreatedAt <= cv.CreatedAt
+                AND (av.DeletedAt IS NULL OR av.DeletedAt > cv.CreatedAt)
+            WHERE 
+                cv.CategoryID = :categoryId2
+                AND cv.VersionID != :currentVersionId
+            GROUP BY 
+                cv.VersionID
+            ORDER BY 
+                cv.CreatedAt DESC
+        ";
+    
+        $params = [':categoryId1' => $categoryId, ':categoryId2' => $categoryId, ':currentVersionId' => $currentVersionId];
+        
+        // Fetch the current version details
+        $currentVersion = $this->supportSiteDb->query($currentVersionQuery, [':versionId' => $currentVersionId]);
+        
+        // Fetch the historical versions excluding the current version
+        $historicalVersions = $this->supportSiteDb->query($historicalVersionsQuery, $params);
+        
+        return [
+            'currentVersion' => $currentVersion,
+            'historicalVersions' => $historicalVersions
+        ];
     }
 
     public function updateArticle($articleId, $newCategoryId, $newTitle, $newDescription, $newDetailedDescription, $newImgSrc)
@@ -355,7 +439,7 @@ class Support
                 if (!empty($specificChanges)) {
                     $this->logArticleAction($userId, $newArticleVersionId, $specificChanges);
                 }
-                return true;
+                return $newArticleVersionId;
             } else {
                 // Log the failed content update
                 $this->logArticleAction($userId, $newArticleVersionId, self::ARTICLE_CONTENT_UPDATE_FAILED);
@@ -411,7 +495,7 @@ class Support
                 // Log the action in ArticleActionLog
                 $this->logArticleAction($userId, $newArticleVersionId, $newStatus == 1 ? [self::ARTICLE_ARCHIVED] : [self::ARTICLE_UNARCHIVED]);
 
-                return true;
+                return $newArticleVersionId;
             } else {
                 throw new Exception("Failed to archive article. Ensure data integrity and try again.");
 
@@ -468,7 +552,7 @@ class Support
                 // Log the action in ArticleActionLog
                 $this->logArticleAction($userId, $newArticleVersionId, $newStatus == 1 ? [self::ARTICLE_SET_STAFF_ONLY] : [self::ARTICLE_SET_PUBLIC]);
 
-                return true;
+                return $newArticleVersionId;
             } else {
                 throw new Exception("Failed to toggle article's staff-only status. Ensure data integrity and try again.");
             }
@@ -491,6 +575,7 @@ class Support
         $this->supportSiteDb->query($query, $params);
     }
 
+
     public function createArticleVersion(
         $articleId,
         $categoryId = null,
@@ -499,14 +584,15 @@ class Support
         $detailedDescription = null,
         $imgSrc = null,
         $staffOnly = 0, // New optional parameter for StaffOnly status
-        $archiveStatus = 0 // New optional parameter for archive status
+        $archiveStatus = 0, // New optional parameter for archive status
+        $isDeleted = 0 // New optional parameter for delete status
     ) {
         // Fetch current article data to use as defaults
         $currentArticle = $this->fetchArticleById($articleId);
         if (!$currentArticle || count($currentArticle) === 0) {
             throw new Exception('Article not found');
         }
-
+    
         // Use existing values if new ones are not provided
         $categoryId = $categoryId ?? $currentArticle[0]['CategoryID'];
         $title = $title ?? $currentArticle[0]['Title'];
@@ -514,23 +600,24 @@ class Support
         $detailedDescription = $detailedDescription ?? $currentArticle[0]['DetailedDescription'];
         $imgSrc = $imgSrc ?? $currentArticle[0]['ImgSrc'];
         $staffOnly = $staffOnly ?? $currentArticle[0]['StaffOnly'];
-        // $newVersion = $newVersion ?? ($this->getLatestArticleVersion($articleId) + 1);
-
+        $archiveStatus = $archiveStatus ?? $currentArticle[0]['Archived'];
+    
         $slug = strtolower(str_replace(' ', '-', $title));
-
+    
         // Check if the new slug or title already exists and is not itself
         $existingArticle = $this->supportSiteDb->query(
             'SELECT * FROM Articles WHERE (Slug = :slug OR Title = :title) AND ArticleID != :articleId',
             [':slug' => $slug, ':title' => $title, ':articleId' => $articleId]
         );
-
+    
         if (!empty($existingArticle)) {
             throw new Exception('This article title or slug is already taken!');
         }
-
+    
         $table = "ArticleVersions";
-        $rows = "ArticleID, CategoryID, Title, Description, DetailedDescription, Slug, ImgSrc, StaffOnly, Archived";
-        $values = "?, ?, ?, ?, ?, ?, ?, ?, ?";
+        $rows = "ArticleID, CategoryID, Title, Description, DetailedDescription, Slug, ImgSrc, StaffOnly, Archived, DeletedAt";
+        $values = "?, ?, ?, ?, ?, ?, ?, ?, ?, ?";
+        $deletedAt = $isDeleted ? date('Y-m-d H:i:s') : null; // Set DeletedAt timestamp if marked as deleted
         $params = makeFilterParams([
             $articleId,
             $categoryId,
@@ -540,9 +627,10 @@ class Support
             $slug,
             $imgSrc,
             $staffOnly,
-            $archiveStatus
+            $archiveStatus,
+            $deletedAt
         ]);
-
+    
         try {
             $addResult = $this->supportSiteDb->insertData($table, $rows, $values, $params);
             if ($addResult) {
@@ -674,22 +762,90 @@ class Support
     }
 
 
-
-
-
-    public function deleteArticle($articleId, $userId)
+    public function deleteCategory($categoryId, $userId)
     {
-        // Soft delete the article by setting DeletedAt
-        $deleteQuery = "UPDATE Articles SET DeletedAt = NOW() WHERE ArticleID = :articleId";
-        $this->supportSiteDb->query($deleteQuery, [':articleId' => $articleId]);
-
-        // Log the deletion in ArticleActionLog
-        // TODO: RESTRUCTURE BECAUSE WE DONT HAVE A VERSION ID FOR DELETION
-        $this->logArticleAction($userId, $articleId, [self::ARTICLE_DELETED]);
-
-        // Return true or false based on success
-        return true;
+        // Fetch current category data to create a new version
+        $currentCategory = $this->fetchCategoryById($categoryId);
+        if (!$currentCategory || count($currentCategory) === 0) {
+            throw new Exception('Category not found');
+        }
+    
+        // Create a new version of the category marking it as deleted
+        $newCategoryVersionId = $this->createCategoryVersion(
+            $categoryId,
+            $currentCategory[0]['Title'],
+            1 // Mark as deleted
+        );
+    
+        // Prepare parameters for the update
+        $params = makeFilterParams([$newCategoryVersionId, $categoryId]);
+    
+        try {
+            // Update the current category to reference the new deleted version and set DeletedAt
+            $updateResult = $this->supportSiteDb->updateData(
+                "Categories",
+                "VersionID = ?, DeletedAt = NOW()",
+                "CategoryID = ?",
+                $params
+            );
+    
+            if ($updateResult) {
+                // Log the action in CategoryActionLog
+                $this->logCategoryAction($userId, $newCategoryVersionId, self::CATEGORY_DELETED);
+                return true;
+            } else {
+                throw new Exception("Failed to delete category. Ensure data integrity and try again.");
+            }
+        } catch (Exception $e) {
+            throw new PDOException('Failed to delete category: ' . $e->getMessage());
+        }
     }
+    
+
+public function deleteArticle($articleId, $userId)
+{
+    // Fetch current article data to create a new version
+    $currentArticle = $this->fetchArticleById($articleId);
+    if (!$currentArticle || count($currentArticle) === 0) {
+        throw new Exception('Article not found');
+    }
+
+    // Create a new version of the article marking it as deleted
+    $newArticleVersionId = $this->createArticleVersion(
+        $articleId,
+        $currentArticle[0]['CategoryID'],
+        $currentArticle[0]['Title'],
+        $currentArticle[0]['Description'],
+        $currentArticle[0]['DetailedDescription'],
+        $currentArticle[0]['ImgSrc'],
+        $currentArticle[0]['StaffOnly'],
+        $currentArticle[0]['Archived'],
+        1 // Mark as deleted
+    );
+
+    // Prepare parameters for the update
+    $params = makeFilterParams([$newArticleVersionId, $articleId]);
+
+    try {
+        // Update the current article to reference the new deleted version
+        $updateResult = $this->supportSiteDb->updateData(
+            "Articles",
+            "VersionID = ?, DeletedAt = NOW()",
+            "ArticleID = ?",
+            $params
+        );
+
+        if ($updateResult) {
+            // Log the action in ArticleActionLog
+            $this->logArticleAction($userId, $newArticleVersionId, self::ARTICLE_DELETED);
+            return true;
+        } else {
+            throw new Exception("Failed to delete article. Ensure data integrity and try again.");
+        }
+    } catch (Exception $e) {
+        throw new PDOException('Failed to delete article: ' . $e->getMessage());
+    }
+}
 
     // public function deleteCategory($categoryID)
     // {
@@ -735,19 +891,6 @@ class Support
             ':actionType' => $actionType
         ];
         $this->supportSiteDb->query($query, $params);
-    }
-
-    public function deleteCategory($categoryId, $userId)
-    {
-        // Soft delete the category by setting DeletedAt
-        $deleteQuery = "UPDATE Categories SET DeletedAt = NOW() WHERE CategoryID = :categoryId";
-        $this->supportSiteDb->query($deleteQuery, [':categoryId' => $categoryId]);
-
-        // log the deletion in a CategoryActionLog
-        $this->logCategoryAction($userId, $categoryId, self::CATEGORY_DELETED);
-
-        // Return true or false based on success
-        return true;
     }
 
     public function restoreArticle($articleId, $userId)
