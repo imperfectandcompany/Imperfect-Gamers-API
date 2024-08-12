@@ -171,10 +171,12 @@ class SupportController
         $userId = $GLOBALS['user_id']; // identify the current user
 
         try {
-            $createdArticleID = $this->supportModel->createArticle($userId, $categoryId, $title, $description, $detailedDescription, $imgSrc);
+            $creationResult = $this->supportModel->createArticle($userId, $categoryId, $title, $description, $detailedDescription, $imgSrc);
 
-            if ($createdArticleID) {
-                return ResponseHandler::sendResponse('success', ['message' => 'Article created successfully', 'articleID' => $createdArticleID], 201);
+            if ($creationResult) {
+                $articleId = $creationResult['articleId'];
+                $versionId = $creationResult['versionId'];
+                return ResponseHandler::sendResponse('success', ['message' => 'Article created successfully', 'articleID' => $articleId, 'versionID' => $versionId], 200);
             } else {
                 return ResponseHandler::sendResponse('error', ['message' => 'Failed to create article'], 500);
             }
@@ -389,20 +391,20 @@ class SupportController
         }
     }
 
-    public function restoreArticle($articleId)
+    public function restoreArticle(int $articleId)
     {
         $userId = $GLOBALS['user_id']; // identify the current user
 
         try {
-            $result = $this->supportModel->restoreArticle($articleId, $userId);
-            if ($result) {
-                return ResponseHandler::sendResponse('success', ['message' => 'Article restored successfully'], 200);
+            $newVersion = $this->supportModel->restoreArticle($articleId, $userId);
+            if ($newVersion) {
+                return ResponseHandler::sendResponse('success', ['message' => 'Article restored successfully', 'version' => $newVersion], 200);
             } else {
                 return ResponseHandler::sendResponse('error', ['message' => 'Failed to restore article'], 500);
             }
         } catch (Exception $e) {
             $this->logger->log('error', 'restore_article_error', ['error' => $e->getMessage()]);
-            return ResponseHandler::sendResponse('error', ['message' => 'Failed to restore article'], 500);
+            return ResponseHandler::sendResponse('error', ['message' => 'Failed to restore article', 'error' => $e->getMessage()], 500);
         }
     }
 
