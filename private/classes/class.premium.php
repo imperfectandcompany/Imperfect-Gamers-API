@@ -100,25 +100,29 @@ class Premium
         $checkQuery = "SELECT 1 FROM sa_admins WHERE player_steamid = :steamId";
         $checkParams = [':steamId' => $steamId];
         $checkResult = $this->simpleAdminDb->query($checkQuery, $checkParams);
-
+ 
         // Prepare the common parameters
         $flags = $this->generateNewFlags($this->getCurrentFlags($steamId), $isPremium);
 
-        $immunity = 10;  // Fixed immunity value for premium
+        $fixedImmunity = 10;  // Fixed immunity value for premium
 
         // Update the existing Premium record
         if (!empty($checkResult)) {
+        // Existing record found, so update it
+        $currentImmunity = $checkResult[0]['immunity'] ?? 0;  // fetch returns an array
+        $immunity = max($currentImmunity, $fixedImmunity);  // Ensure we do not lower immunity
 
             // Ensure $flags is a string
             if (!is_string($flags)) {
                 $flags = (string) $flags;  // Convert $flags to string if not already
             }
-            $params = makeFilterParams([$flags, $steamId]);
+            $params = makeFilterParams([$flags, $immunity, $steamId]);
+                    // Prepare parameters for the update
 
             // Call updateData method with generated filter params
             $updateResult = $this->simpleAdminDb->updateData(
                 "sa_admins",
-                "flags = :flags",
+                "flags = :flags, immunity = :immunity",
                 "player_steamid = :steamId",
                 $params
             );
@@ -135,7 +139,7 @@ class Premium
                 ':steamId' => $steamId,
                 ':username' => $username,
                 ':flags' => $flags,
-                ':immunity' => $immunity
+                ':immunity' => $fixedImmunity
             ];
 
             $insertResult = $this->simpleAdminDb->query($insertQuery, $insertParams);
@@ -155,19 +159,45 @@ class Premium
         return $result ? $result[0]['flags'] : '';
     }
 
+    // private function generateNewFlags($flags, $isPremium)
+    // {
+    //     $flagParts = explode(', ', $flags);
+    //     $premiumFlagIndex = array_search('#css/premium', $flagParts);
+
+    //     if ($isPremium && $premiumFlagIndex === false) {
+    //         $flagParts[] = '#css/premium';
+    //     } elseif (!$isPremium && $premiumFlagIndex !== false) {
+    //         unset($flagParts[$premiumFlagIndex]);
+    //     }
+
+    //     return implode(', ', $flagParts);
+    // }
+
     private function generateNewFlags($flags, $isPremium)
     {
-        $flagParts = explode(', ', $flags);
+        // Handle NULL or empty string cases
+        if ($flags === null || trim($flags) === '') {
+            $flagParts = [];
+        } else {
+            // Split flags by comma and remove any extra spaces around the flags
+            $flagParts = array_filter(array_map('trim', explode(',', $flags)));
+        }
+    
+        // Search for the #css/premium flag
         $premiumFlagIndex = array_search('#css/premium', $flagParts);
-
+    
         if ($isPremium && $premiumFlagIndex === false) {
+            // Add the premium flag if it doesn't exist
             $flagParts[] = '#css/premium';
         } elseif (!$isPremium && $premiumFlagIndex !== false) {
+            // Remove the premium flag if it exists
             unset($flagParts[$premiumFlagIndex]);
         }
-
-        return implode(', ', $flagParts);
+    
+        // Return the flags as a comma-separated string, ensuring consistent formatting
+        return implode(',', $flagParts);
     }
+    
 
     // private function updateSaAdminsFlags($steamId, $isPremium)
     // {

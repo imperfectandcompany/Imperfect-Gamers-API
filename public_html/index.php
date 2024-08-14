@@ -312,6 +312,31 @@ if (!$isLoggedIn) {
     $notAuthenticatedRouter->add('/register', 'UserController@register', 'POST');
     $notAuthenticatedRouter->add('/auth', 'UserController@authenticate', 'POST');
 
+
+
+// Ensure the constant is defined
+if (!defined('IMPERFECT_HOST_SECRET')) {
+    define('IMPERFECT_HOST_SECRET', $imperfect_host_webhook_key);
+}
+
+// Fetch the payload and signature
+$receivedPayload = file_get_contents('php://input');
+$receivedSignature = isset($_SERVER['HTTP_X_SIGNATURE']) ? $_SERVER['HTTP_X_SIGNATURE'] : ''; // Handle missing signature
+
+// Compute the HMAC
+$computedHmac = hash_hmac('sha256', $receivedPayload, IMPERFECT_HOST_SECRET);
+
+if (!empty($receivedPayload) && hash_equals($computedHmac, $receivedSignature)) {
+    $notAuthenticatedRouter->add('/premium/update/user/:userId/:premiumStatus', 'PremiumController@updatePremiumUser', 'PUT');
+    $notAuthenticatedRouter->enforceParameters('/premium/update/user/:userId/:premiumStatus', 'PUT', [
+        'steam_id' => 'body',
+        'username' => 'body',
+        'email' => 'body'
+    ]);
+    $notAuthenticatedRouter->addDocumentation('/premium/update/user/:userId/:premiumStatus', 'PUT', 'Updates the premium status of a user, ensuring user data consistency.');
+}
+
+
     // get all the routes that have been added to the router
     $routes = $notAuthenticatedRouter->getRoutes();
 
@@ -367,20 +392,6 @@ $router->addDocumentation('/user/updateCheckoutDetails', 'POST', 'Updates the ba
 // todo: throw error if parameterized route is already taken
 // todo: throw proper error for when route with enforced parameters does not receive expected input
 
-// Ensure the constant is defined
-if (!defined('IMPERFECT_HOST_SECRET')) {
-    define('IMPERFECT_HOST_SECRET', $imperfect_host_webhook_key);
-}
-
-if (hash_equals(hash_hmac('sha256', file_get_contents('php://input'), IMPERFECT_HOST_SECRET), getallheaders()['X-Signature'] ?? '')) {
-    $router->add('/premium/update/user/:userId/:premiumStatus', 'PremiumController@updatePremiumUser', 'PUT');
-    $router->enforceParameters('/premium/update/user/:userId/:premiumStatus', 'PUT', [
-        'steam_id' => 'body',
-        'username' => 'body',
-        'email' => 'body'
-    ]);
-    $router->addDocumentation('/premium/update/user/:userId/:premiumStatus', 'PUT', 'Updates the premium status of a user, ensuring user data consistency.');
-}
 
 // TODO: Make route add fail is the controller paramaeters name does not match the parameterized part as variable (eg. :user_id => int $user_id) 
 $router->add('/premium/status/:userId', 'PremiumController@checkPremiumStatus', 'GET');

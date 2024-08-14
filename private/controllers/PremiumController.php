@@ -78,53 +78,111 @@ class PremiumController
         }
     }
 
+public function updatePremiumUser(int $userId, bool $premiumStatus)
+{
+    // Parse the request body for JSON input
+    $putBody = json_decode(file_get_contents('php://input'), true);
 
-    public function updatePremiumUser(int $userId, bool $premiumStatus)
-    {
-        // Parse the request body for JSON input
-        $putBody = json_decode(static::getInputStream(), true);
-
-        $missingFields = $this->validateInputFields(['username', 'email', 'steam_id'], $putBody);
-
-        if (!empty($missingFields)) {
-            $errorMessage = 'Missing required fields: ' . implode(', ', $missingFields);
-            $this->logger->log($userId, 'validation_error', ['message' => $errorMessage]);
-            return ResponseHandler::sendResponse('error', ['message' => $errorMessage], ERROR_INVALID_INPUT);
-        }
-
-        if (!preg_match('/^7656119[0-9]{10}+$/', $putBody['steam_id'])) {
-            $this->logger->log($userId, 'invalid_steam_id', ['steam_id' => $putBody['steam_id']]);
-            return ResponseHandler::sendResponse('error', ['message' => 'Invalid Steam ID'], ERROR_INVALID_INPUT);
-        }
-
-        // Make sure sent values match 1:1 from the website database
-        $validationResult = $this->validateUserDataConsolidated($userId, $putBody['username'], $putBody['email'], $putBody['steam_id']);
-        // Check the validation result for userId
-        if (!$validationResult['userId']['isValid']) {
-            $this->logger->log($userId, 'validation_error', ['message' => $validationResult['userId']['message']]);
-            // Return an error if the user cannot be found
-            return ResponseHandler::sendResponse('error', ['message' => $validationResult['userId']['message']], ERROR_NOT_FOUND);
-        }
-        $errorMessages = $this->parseValidationErrors($validationResult);
-
-        if (!empty($errorMessages)) {
-
-            // Concatenate errors with a comma and ensure the message ends with a single period.
-            $errorMessage = '{' . implode(', ', $errorMessages) . '}';
-            // Ensure only one final period by trimming any trailing space and periods before adding the final period
-            $errorMessage = rtrim($errorMessage, '. ') . '';
-
-            $this->logger->log($userId, 'validation_error', $errorMessages);
-            return ResponseHandler::sendResponse('error', ['message' => 'Validation for associated User ID Data failed', 'errors' => $errorMessage], ERROR_INVALID_INPUT);
-        }
-        if ($this->premiumModel->updatePremiumStatus($putBody['steam_id'], $putBody['username'], $premiumStatus)) {
-            $this->logger->log($userId, 'update_premium_status', ['status' => 'success']);
-            return ResponseHandler::sendResponse('success', ['message' => 'Premium status updated successfully'], 200);
-        } else {
-            $this->logger->log($userId, 'update_premium_status_failed', ['status' => 'failed']);
-            return ResponseHandler::sendResponse('error', ['message' => 'Failed to update premium status'], 500);
-        }
+    // Validate input fields
+    $missingFields = $this->validateInputFields(['username', 'email', 'steam_id'], $putBody);
+    if (!empty($missingFields)) {
+        $errorMessage = 'Missing required fields: ' . implode(', ', $missingFields);
+        $this->logger->log($userId, 'validation_error', ['message' => $errorMessage]);
+        return ResponseHandler::sendResponse('error', ['message' => $errorMessage], ERROR_INVALID_INPUT);
     }
+
+    if (!preg_match('/^7656119[0-9]{10}+$/', $putBody['steam_id'])) {
+        $this->logger->log($userId, 'invalid_steam_id', ['steam_id' => $putBody['steam_id']]);
+        return ResponseHandler::sendResponse('error', ['message' => 'Invalid Steam ID'], ERROR_INVALID_INPUT);
+    }
+
+    // Validate user data
+    $validationResult = $this->validateUserDataConsolidated($userId, $putBody['username'], $putBody['email'], $putBody['steam_id']);
+    
+    // Check the validation result for userId
+    if (!$validationResult['userId']['isValid']) {
+        $this->logger->log($userId, 'validation_error', ['message' => $validationResult['userId']['message']]);
+        return ResponseHandler::sendResponse('error', ['message' => $validationResult['userId']['message']], ERROR_NOT_FOUND);
+    }
+
+    // Check the validation result for username
+    if (!$validationResult['username']['isValid']) {
+        $this->logger->log($userId, 'validation_error', ['message' => $validationResult['username']['message']]);
+        return ResponseHandler::sendResponse('error', ['message' => $validationResult['username']['message']], ERROR_INVALID_INPUT);
+    }
+
+    // Check the validation result for steamId
+    if (!$validationResult['steamId']['isValid']) {
+        $this->logger->log($userId, 'validation_error', ['message' => $validationResult['steamId']['message']]);
+        return ResponseHandler::sendResponse('error', ['message' => $validationResult['steamId']['message']], ERROR_INVALID_INPUT);
+    }
+
+    // $errorMessages = $this->parseValidationErrors($validationResult);
+    // if (!empty($errorMessages)) {
+    //     $errorMessage = '{' . implode(', ', $errorMessages) . '}';
+    //     $errorMessage = rtrim($errorMessage, '. ') . '.';
+    //     $this->logger->log($userId, 'validation_error', $errorMessages);
+    //     return ResponseHandler::sendResponse('error', ['message' => 'Validation for associated User ID Data failed', 'errors' => $errorMessage], ERROR_INVALID_INPUT);
+    // }
+
+    // Update premium status
+    if ($this->premiumModel->updatePremiumStatus($putBody['steam_id'], $putBody['username'], $premiumStatus)) {
+        $this->logger->log($userId, 'update_premium_status', ['status' => 'success']);
+
+        // Record the payment (example data, adjust as necessary)
+        $paymentSuccess = $this->recordPayment(
+            $userId, // userId is the payer in this case - for now until gifting is introduced
+            $userId, // recipient is also the same user for this case - for now until gifting is introduced
+            $putBody['email'], // Transaction email
+            12.00, // Amount, current value until we introduce multiple packages which will necessitate dynamic
+            'USD', // Currency, current value until we introduce multiple currencies which will necessitate dynamic
+            'Tebex', // Payment method, current value until we introduce multiple vendors which will necessitate dynamic
+            'completed', // Status, current value until we introduce multiple transaction types (refunded, canceled etc) which will necessitate dynamic
+            [] // Payment data, empty array until we find use during iterations which will later transform to structured data if necessitated
+        );
+
+        if ($paymentSuccess) {
+            return ResponseHandler::sendResponse('success', ['message' => 'Premium status updated and payment recorded successfully'], 200);
+        } else {
+            return ResponseHandler::sendResponse('success', ['message' => 'Premium status updated, but failed to record payment'], 200);
+        }
+    } else {
+        $this->logger->log($userId, 'update_premium_status_failed', ['status' => 'failed']);
+        return ResponseHandler::sendResponse('error', ['message' => 'Failed to update premium status'], 500);
+    }
+}
+
+public function recordPayment($payerUserId, $recipientUserId, $transactionEmail, $amount, $currency, $paymentMethod, $status, $paymentData)
+{
+    try {
+        // Prepare SQL query to insert payment details
+        $query = "INSERT INTO payments (payer_user_id, recipient_user_id, transaction_email, amount, currency, payment_method, status, payment_data)
+                  VALUES (:payerUserId, :recipientUserId, :transactionEmail, :amount, :currency, :paymentMethod, :status, :paymentData)";
+
+        // Bind parameters
+        $params = [
+            ':payerUserId' => $payerUserId,
+            ':recipientUserId' => $recipientUserId,
+            ':transactionEmail' => $transactionEmail,
+            ':amount' => $amount,
+            ':currency' => $currency,
+            ':paymentMethod' => $paymentMethod,
+            ':status' => $status,
+            ':paymentData' => json_encode($paymentData) // Store as JSON
+        ];
+
+        // Execute query
+        $this->dbConnection->query($query, $params);
+
+        $this->logger->log($payerUserId, 'payment_recorded', ['transaction_email' => $transactionEmail, 'amount' => $amount, 'currency' => $currency, 'status' => $status]);
+
+        return true;
+    } catch (Exception $e) {
+        $this->logger->log($payerUserId, 'payment_record_failed', ['error' => $e->getMessage()]);
+        return false;
+    }
+}
+
 
 
     public function checkUserExistsInServer(int $userId) {
@@ -246,39 +304,35 @@ class PremiumController
     }
     private function validateUserDataConsolidated($userId, $username, $email, $steamId)
     {
-        $query = "SELECT users.id AS user_id, profiles.username, users.email, profiles.steam_id_64 FROM users 
+        $query = "SELECT users.id AS user_id, profiles.username, users.email, profiles.steam_id_64 
+                  FROM users 
                   LEFT JOIN profiles ON users.id = profiles.user_id
                   WHERE users.id = :userId";
         $params = [':userId' => $userId];
-
+    
         $result = $this->dbConnection->query($query, $params);
-
+    
         if (empty($result)) {
             return [
                 'userId' => ['isValid' => false, 'message' => 'User ID not found.'],
                 'username' => ['isValid' => false, 'message' => 'No user data to compare username.'],
                 'email' => ['isValid' => false, 'message' => 'No user data to compare email.'],
-                'steamId' => ['isValid' => false, 'message' => 'No user data to compare Steam ID.']
+                'steamId' => ['isValid' => false, 'message' => 'No user data to compare Steam ID.'],
             ];
         }
-        $userData = $result[0]; // Assume the first result is the relevant one
-
-        $validationResult = [
-            'userId' => ['isValid' => true, 'message' => 'User ID is valid.'],
-            'username' => ['isValid' => isset($userData['username']) && strtolower($userData['username']) === strtolower($username), 'message' => 'Username does not match.'],
-            'email' => ['isValid' => isset($userData['email']) && strtolower($userData['email']) === strtolower($email), 'message' => 'Email does not match.'],
-            'steamId' => ['isValid' => isset($userData['steam_id_64']) && $userData['steam_id_64'] === $steamId, 'message' => 'Steam ID does not match.']
+    
+        $userData = $result[0];
+    
+        $validation = [
+            'userId' => ['isValid' => true, 'message' => ''],
+            'username' => ['isValid' => $username === $userData['username'], 'message' => 'Username mismatch.'],
+            'email' => ['isValid' => $email === $userData['email'], 'message' => 'Email mismatch.'],
+            'steamId' => ['isValid' => $steamId === $userData['steam_id_64'], 'message' => 'Steam ID mismatch.']
         ];
-
-        // Ensure all fields are checked for presence to avoid comparing against non-existent data
-        foreach (['username', 'email', 'steam_id_64'] as $field) {
-            if (!isset($userData[$field])) {
-                $validationResult[$field] = ['isValid' => false, 'message' => ucfirst($field) . ' is not set in the database.'];
-            }
-        }
-
-        return $validationResult;
+    
+        return $validation;
     }
+    
 
 
 
