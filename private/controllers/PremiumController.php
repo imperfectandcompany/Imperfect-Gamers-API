@@ -131,9 +131,18 @@ class PremiumController
             }
 
             $isPremium = $this->premiumModel->checkPremiumStatusFromSteamId($steamId);
+            
             if ($isPremium !== null) {
+                // Get payment data by user ID
+                $paymentData = $userModel->getPaymentDataByUserId($userId);
+
                 $this->logger->log($userId, 'check_premium_status', ['status' => $isPremium]);
-                return ResponseHandler::sendResponse('success', ['user_id' => $userId, 'is_premium' => $isPremium], 200);
+                
+                return ResponseHandler::sendResponse('success', [
+                 'is_premium' => (bool) $isPremium,  // Make sure premium status is boolean
+                 'payment_data' => $paymentData ? $paymentData : [] // Return payment data, or empty array if none
+                ], 200);
+                
             } else {
                 $this->logger->log($userId, 'steam_not_found', ['userId' => $userId]);
                 return ResponseHandler::sendResponse('error', ['message' => 'Steam not found'], 404);
@@ -144,13 +153,6 @@ class PremiumController
             return ResponseHandler::sendResponse('error', ['message' => $errorMessage], 500);
         }
     }
-    
-    
-    
-    
-    
-    
-    
 
     public function updatePremiumUser(int $userId, bool $premiumStatus)
     {
@@ -213,7 +215,10 @@ class PremiumController
                     'USD', // Currency, current value until we introduce multiple currencies which will necessitate dynamic
                     'Tebex', // Payment method, current value until we introduce multiple vendors which will necessitate dynamic
                     $premiumStatus ? 'completed' : 'refunded', // Status, current value until we introduce multiple transaction types (refunded, canceled etc) which will necessitate dynamic
-                    [] // Payment data, empty array until we find use during iterations which will later transform to structured data if necessitated
+                    [
+                        'transaction_id' => !empty($putBody['transaction_id']) ? $putBody['transaction_id'] : '', // Default to empty if not present
+                        'recurring_payment_reference' => !empty($putBody['recurring_payment_reference']) ? $putBody['recurring_payment_reference'] : '' // Default to empty if not present
+                    ]
                 );
 
                 if ($transactionAuditSuccess) {
@@ -241,7 +246,7 @@ class PremiumController
 
     }
 
-    public function recordPayment($payerUserId, $recipientUserId, $transactionEmail, $amount, $currency, $paymentMethod, $status, $paymentData)
+    public function recordPayment($payerUserId, $recipientUserId, $transactionEmail, $amount, $currency, $paymentMethod, $status, $paymentData = [])
     {
         try {
             // Prepare SQL query to insert payment details

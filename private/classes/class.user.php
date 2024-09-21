@@ -485,6 +485,32 @@ class User
             return false;
         }
     }
+    
+    
+    /**
+     * Get payment data by user Id
+     *
+     * @param string $email User email
+     * @return array payment_data
+     */
+    public function getPaymentDataByUserId($userId)
+    {
+        $result = $this->dbObject->query(
+            'SELECT payment_data from payments WHERE recipient_user_id=:userid',
+            array(
+                ':userid' => $userId
+            )
+        );
+
+        if ($result && count($result) > 0) {
+            // Decode the payment_data JSON string into an array before returning
+            $paymentData = $result[0]['payment_data'];
+            return json_decode($paymentData, true); // Return as associative array
+        } else {
+            return null; // Return null if no payment data
+        }
+    }
+
 
     public function createUser($email, $password)
     {
