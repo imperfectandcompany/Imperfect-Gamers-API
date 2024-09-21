@@ -266,6 +266,10 @@ $mutualRoute->addDocumentation('/infractions/details/:steamId', 'GET', 'Fetches 
 $mutualRoute->add('/infractions/check/:steamId', 'InfractionController@checkInfractionsBySteamId', 'GET');
 $mutualRoute->addDocumentation('/infractions/check/:steamId', 'GET', 'Checks for any infractions by Steam ID.');
 
+
+$mutualRoute->add('/premium/support/status/:email', 'PremiumController@checkPremiumStatusEmail', 'GET');
+$mutualRoute->addDocumentation('/premium/support/status/:email', 'GET', 'Checks if a user is a premium member from email.');
+
 // Route to check for any infractions by Admin Steam ID
 $mutualRoute->add('/infractions/check/admin/:adminId', 'InfractionController@checkInfractionsByAdminId', 'GET');
 $mutualRoute->addDocumentation('/infractions/check/admin/:adminId', 'GET', 'Checks for any infractions placed by Admin Steam ID.');
@@ -278,6 +282,8 @@ $mutualRoute->addDocumentation('/infractions/details/admin/:adminSteamId', 'GET'
 $mutualRoute->add('/infractions/details/admin/:adminSteamId/p/:page', 'InfractionController@getInfractionDetailsByAdminIdPaginated', 'GET');
 $mutualRoute->addDocumentation('/infractions/details/admin/:adminSteamId/p/:page', 'GET', 'Fetches paginated infraction details by Admin Steam ID.');
 
+$mutualRoute->add('/blog/fetch/all/articles', 'SupportController@fetchAllArticles', 'GET');
+$mutualRoute->addDocumentation('/blog/fetch/all/articles', 'GET', 'Gets all of the articles from the blog.');
 
 // ## FOR SUPPORT.IMPERFECTGAMERS.ORG
 
@@ -297,6 +303,24 @@ $mutualRoute->addDocumentation('/support/articles/fetchByCategory/:categoryId', 
 $mutualRoute->add('/support/categories', 'SupportController@fetchAllCategories', 'GET');
 $mutualRoute->addDocumentation('/support/categories', 'GET', 'Fetches all categories.');
 
+// ## FOR BLOG.IMPERFECTGAMERS.ORG
+
+// Route to fetch an article by ID
+$mutualRoute->add('/blog/article/fetchById/:id', 'BlogController@fetchArticleById', 'GET');
+$mutualRoute->addDocumentation('/blog/article/fetchById/:id', 'GET', 'Fetches an article by its ID.');
+
+// Route to fetch an article by ID
+$mutualRoute->add('/blog/article/fetchBySlug/:slug', 'BlogController@fetchArticleBySlug', 'GET');
+$mutualRoute->addDocumentation('/blog/article/fetchBySlug/:slug', 'GET', 'Fetches an article by its slug.');
+
+// Route to fetch articles by category
+$mutualRoute->add('/blog/articles/fetchByCategory/:categoryId', 'BlogController@fetchArticlesByCategory', 'GET');
+$mutualRoute->addDocumentation('/blog/articles/fetchByCategory/:categoryId', 'GET', 'Fetches articles by category ID.');
+
+// Route to fetch all categories
+$mutualRoute->add('/blog/categories', 'BlogController@fetchAllCategories', 'GET');
+$mutualRoute->addDocumentation('/blog/categories', 'GET', 'Fetches all categories.');
+
 
 if (DEVMODE == 1) {
     $mutualRoute->add('/list-routes', 'DevController@listRoutes', 'GET');
@@ -314,17 +338,33 @@ if (!$isLoggedIn) {
 
 
 
-// Ensure the constant is defined
-if (!defined('IMPERFECT_HOST_SECRET')) {
-    define('IMPERFECT_HOST_SECRET', $imperfect_host_webhook_key);
-}
+    // Ensure the constant is defined
+    if (!defined('IMPERFECT_HOST_SECRET')) {
+        define('IMPERFECT_HOST_SECRET', $imperfect_host_webhook_key);
+    }
 
-// Fetch the payload and signature
-$receivedPayload = file_get_contents('php://input');
-$receivedSignature = isset($_SERVER['HTTP_X_SIGNATURE']) ? $_SERVER['HTTP_X_SIGNATURE'] : ''; // Handle missing signature
+    // Fetch the payload and signature
+    $receivedPayload = file_get_contents('php://input');
+    $receivedSignature = isset($_SERVER['HTTP_X_SIGNATURE']) ? $_SERVER['HTTP_X_SIGNATURE'] : ''; // Handle missing signature
 
-// Compute the HMAC
-$computedHmac = hash_hmac('sha256', $receivedPayload, IMPERFECT_HOST_SECRET);
+    // Log received data for debugging
+    //echo("Received Payload: " . $receivedPayload);
+    //echo("Received Signature: " . $receivedSignature);
+
+    // Compute the HMAC
+    $computedHmac = hash_hmac('sha256', $receivedPayload, IMPERFECT_HOST_SECRET);
+    //echo("Computed HMAC: " . $computedHmac); // Log computed HMAC for comparison
+
+    
+    
+    // Check if the payload is not empty and the signatures match
+    //if (!empty($receivedPayload) && hash_equals($computedHmac, $receivedSignature)) {
+        // Signatures match - process the request
+        //echo("Signature match. Processing the request...");
+    //} else {
+        // Signatures don't match - log error
+        //cho("Signature mismatch. Request rejected.");
+   //}
 
 if (!empty($receivedPayload) && hash_equals($computedHmac, $receivedSignature)) {
     $notAuthenticatedRouter->add('/premium/update/user/:userId/:premiumStatus', 'PremiumController@updatePremiumUser', 'PUT');
@@ -333,6 +373,7 @@ if (!empty($receivedPayload) && hash_equals($computedHmac, $receivedSignature)) 
         'username' => 'body',
         'email' => 'body'
     ]);
+    //echo "WFererwfre";
     $notAuthenticatedRouter->addDocumentation('/premium/update/user/:userId/:premiumStatus', 'PUT', 'Updates the premium status of a user, ensuring user data consistency.');
 }
 
@@ -396,6 +437,8 @@ $router->addDocumentation('/user/updateCheckoutDetails', 'POST', 'Updates the ba
 // TODO: Make route add fail is the controller paramaeters name does not match the parameterized part as variable (eg. :user_id => int $user_id) 
 $router->add('/premium/status/:userId', 'PremiumController@checkPremiumStatus', 'GET');
 $router->addDocumentation('/premium/status/:userId', 'GET', 'Checks if a user is a premium member.');
+
+
 
 $router->add('/premium/all', 'PremiumController@listAllPremiumUsers', 'GET');
 $router->addDocumentation('/premium/all', 'GET', 'Retrieves a list of all premium users.');
@@ -688,6 +731,111 @@ $router->addDocumentation('/support/requests/:supportRequestId', 'DELETE', 'Dele
 // TODO ADD ERROR HANDLING FOR WHEN MULTIPLE OF THE SAME CONTROLLER FUNCTION NAMES EXIST FOR THE ADDED ROUTE DEFINED CONTROLLER METHOD
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+//#BLOG.IMPERFECTGAMERS.ORG
+
+
+// Route to create a new category
+$router->add('/blog/category/create', 'BlogController@createCategory', 'POST');
+$router->enforceParameters('/blog/category/create', 'POST', [
+    'categoryTitle' => 'body',
+]);
+$router->addDocumentation('/blog/category/create', 'POST', 'Creates a new category.');
+
+// Route to check if a category title exists
+$router->add('/blog/category/checkTitleExists', 'BlogController@checkCategoryTitleExists', 'GET');
+$router->addDocumentation('/blog/category/checkTitleExists', 'GET', 'Checks if a category title already exists.');
+
+// Route to create a new article
+$router->add('/blog/article/create', 'BlogController@createArticle', 'POST');
+// $router->enforceParameters('/support/article/create', 'POST', [
+//     'title' => 'body',
+//     'description' => 'body',
+//     'detailedDescription' => 'body',
+//     'categoryId' => 'body'
+// ]);
+// TODO DO NOT THROW 404 IN ROUTER CLASS
+$router->addDocumentation('/blog/article/create', 'POST', 'Creates a new article.');
+
+// Route to check if an article title or slug exists
+$router->add('/blog/article/checkTitleOrSlugExists', 'BlogController@checkArticleTitleOrSlugExists', 'GET');
+$router->addDocumentation('/blog/article/checkTitleOrSlugExists', 'GET', 'Checks if an article title or slug already exists.');
+
+// Route to update an article
+$router->add('/blog/article/update/:articleId', 'BlogController@updateArticle', 'PUT');
+$router->enforceParameters('/blog/article/update/:articleId', 'PUT', [
+    'categoryId' => 'body',
+    'title' => 'body',
+    'description' => 'body',
+    'detailedDescription' => 'body',
+    'imgSrc' => 'body'
+]);
+$router->addDocumentation('/blog/article/update/:articleId', 'PUT', 'Updates an article with the given ID.');
+
+// Route to archive an article
+$router->add('/blog/article/toggleArchive/:articleId', 'BlogController@archiveArticle', 'PUT');
+$router->addDocumentation('/blog/article/toggleArchive/:articleId', 'PUT', 'Archives an article by its ID.');
+
+// Route to make an article staff-only
+$router->add('/blog/article/toggleStaffOnly/:articleId', 'BlogController@toggleArticleStaffOnly', 'PUT');
+$router->addDocumentation('/blog/article/toggleStaffOnly/:articleId', 'PUT', 'Makes an article staff-only by its ID.');
+
+// Route to fetch action logs for an article version
+$router->add('/blog/article/fetchActionLogs/:articleId', 'BlogController@fetchArticleActionLogs', 'GET');
+$router->addDocumentation('/blog/article/fetchActionLogs/:articleId', 'GET', 'Fetches action logs for a specific article.');
+
+// Route to create a new article version
+$router->add('/blog/article/createVersion', 'BlogController@createArticleVersion', 'POST');
+$router->addDocumentation('/blog/article/createVersion', 'POST', 'Creates a new version of an article.');
+
+// Route to fetch article versions
+$router->add('/blog/article/fetchVersions/:articleId', 'BlogController@fetchArticleVersions', 'GET');
+$router->addDocumentation('/blog/article/fetchVersions/:articleId', 'GET', 'Fetches article versions by article ID.');
+
+// Route to fetch category versions
+$router->add('/blog/category/fetchVersions/:categoryId', 'BlogController@fetchCategoryVersions', 'GET');
+$router->addDocumentation('/blog/category/fetchVersions/:categoryId', 'GET', 'Fetches category versions by category ID.');
+
+// Route to delete an article
+$router->add('/blog/article/delete/:articleId', 'BlogController@deleteArticle', 'DELETE');
+$router->addDocumentation('/blog/article/delete/:articleId', 'DELETE', 'Deletes an article by its ID.');
+
+// Route to update a category
+$router->add('/blog/category/update/:categoryId', 'BlogController@updateCategory', 'PUT');
+$router->enforceParameters('/blog/category/update/:categoryId', 'PUT', [
+    'categoryTitle' => 'body',
+]);
+$router->addDocumentation('/blog/category/update/:categoryId', 'PUT', 'Updates a category.');
+
+// Route to delete a category
+$router->add('/blog/category/delete/:categoryId', 'BlogController@deleteCategory', 'DELETE');
+$router->addDocumentation('/blog/category/delete/:categoryId', 'DELETE', 'Deletes a category by its ID.');
+
+// Route to create a new category version
+$router->add('/blog/category/createVersion', 'BlogController@createCategoryVersion', 'POST');
+$router->addDocumentation('/blog/category/createVersion', 'POST', 'Creates a new version of a category.');
+
+$router->add('/blog/categories/deleted', 'BlogController@fetchDeletedCategories', 'GET');
+$router->add('/blog/articles/deleted', 'BlogController@fetchDeletedArticles', 'GET');
+
+// Route to restore an article
+$router->add('/blog/article/restore/:articleId', 'BlogController@restoreArticle', 'PUT');
+$router->addDocumentation('/blog/article/restore/:articleId', 'PUT', 'Restores a deleted article by its ID.');
+
+// Route to restore a category
+$router->add('/blog/category/restore/:categoryId', 'BlogController@restoreCategory', 'PUT');
+$router->addDocumentation('/blog/category/restore/:categoryId', 'PUT', 'Restores a deleted category by its ID.');
 
 
 // $router->add('/admin/media', 'AdminMediaController@index', 'GET');

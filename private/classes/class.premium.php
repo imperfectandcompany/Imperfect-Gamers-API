@@ -8,6 +8,8 @@ class Premium
 {
     private $simpleAdminDb;  // Connection for game server role management related operations
     private $sharpTimerDb;   // Connection for game server surf game-mode related operations
+    private $whiteListDb;   // Connection for game server vip whitelist related operations
+    
 
     /**
      * Constructor for the Premium class.
@@ -15,11 +17,11 @@ class Premium
      * @param DatabaseConnector $simpleAdminDb Connection object for the game server database
      * @param DatabaseConnector $sharpTimerDb Connection object for the web server database
      */
-    public function __construct($simpleAdminDb, $sharpTimerDb)
+    public function __construct($simpleAdminDb, $sharpTimerDb, $whiteListDb)
     {
         $this->simpleAdminDb = $simpleAdminDb;
         $this->sharpTimerDb = $sharpTimerDb;
-
+        $this->whiteListDb = $whiteListDb;
     }
 
     /**
@@ -35,20 +37,44 @@ class Premium
     {
         $this->sharpTimerDb->getConnection()->beginTransaction();  // Start transaction
         $this->simpleAdminDb->getConnection()->beginTransaction();  // Start transaction
+        $this->whiteListDb->getConnection()->beginTransaction();    // Start transaction
         try {
             // Update the PlayerStats table
             $this->updateIsPremiumStatus($steamId, $isPremium);
             // Insert or update in sa_admins table if playerstats was successfully updated.
             $this->upsertPremium($steamId, $username, $isPremium);
+            // Handle whitelist addition/removal for vip server
+            $this->handleWhitelist($steamId, $isPremium);
+            
+            // Commit all transactions if everything is successful
+
             $this->sharpTimerDb->getConnection()->commit();  // Commit transaction
             $this->simpleAdminDb->getConnection()->commit();  // Commit transaction
+            $this->whiteListDb->getConnection()->commit();
             // If everything is successful
             return true;
         } catch (RuntimeException $e) {
             $this->sharpTimerDb->getConnection()->rollBack();  // Rollback transaction on error
             $this->simpleAdminDb->getConnection()->rollBack();  // Rollback transaction on error
+            $this->whiteListDb->getConnection()->rollBack();   // Rollback transaction on error
             throw $e;  // Re-throw the exception
         }
+    }
+    
+    // Adding/removing from whitelist based on $isPremium
+    private function handleWhitelist($steamId, $isPremium)
+    {
+        if ($isPremium) {
+            // Add to whitelist
+            $query = "INSERT INTO whitelist (value, server_id) VALUES (?, 1) ON DUPLICATE KEY UPDATE value = value";
+        } else {
+            // Remove from whitelist
+            $query = "DELETE FROM whitelist WHERE value = ? AND server_id = 1";
+        }
+
+        $params = [$steamId];
+        $result = $this->whiteListDb->query($query, $params);
+        return $result;
     }
 
     private function updateIsPremiumStatus($steamId, $isPremium)
@@ -134,19 +160,40 @@ class Premium
 
         } else {
             // Insert the new Premium record
-            $insertQuery = "INSERT INTO sa_admins (player_steamid, player_name, flags, immunity) VALUES (:steamId, :username, :flags, :immunity)";
-            $insertParams = [
-                ':steamId' => $steamId,
-                ':username' => $username,
-                ':flags' => $flags,
-                ':immunity' => $fixedImmunity
-            ];
+            //$insertQuery = "INSERT INTO sa_admins (player_steamid, player_name, flags, immunity) VALUES (:steamId, :username, :flags, :immunity)";
+            //$insertParams = [
+              //  ':steamId' => $steamId,
+                //':username' => $username,
+           //     ':flags' => $flags,
+           //     ':immunity' => $fixedImmunity
+           // ];
+            
+            //$insertQueryRaw = "INSERT INTO sa_admins (player_steamid, player_name, flags, immunity) VALUES (".$steamId." ".$username." ".$flags." ".$fixedImmunity.")";
 
-            $insertResult = $this->simpleAdminDb->query($insertQuery, $insertParams);
-            if ($insertResult) {
-                return true;
-            } else {
-                throw new RuntimeException("Failed to insert " . $username . " under Steam ID: " . $steamId . " Please check the database connection and data integrity");
+            //$insertResult = $this->simpleAdminDb->query($insertQuery, $insertParams);
+
+            $table = "sa_admins";
+            $rows = "player_steamid, player_name, flags, immunity, created";
+            $values = "?, ?, ?, ?, ?";
+        $createdAt = date('Y-m-d H:i:s'); // Set DeletedAt timestamp if marked as deleted
+
+            $params = makeFilterParams([
+                $steamId,
+                $username,
+                $flags,
+                $fixedImmunity,
+                $createdAt
+            ]);
+
+            try {
+                $addResult = $this->simpleAdminDb->insertData($table, $rows, $values, $params);
+                if ($addResult) {
+                    return true;
+                } else {
+                throw new Exception("Failed to insert" . $username . " under Steam ID: " . $steamId . " Please check the database connection and data integrity");
+                }
+            } catch (Exception $e) {
+                throw new PDOException('I really dunno how we got here... but this may help: ' . $e->getMessage());
             }
         }
     }
@@ -254,7 +301,8 @@ class Premium
     
         return array_values($premiumUsers);  // Return the list of premium users with lastConnected info
     }
-    
+
+
     
 
     // private function setPremiumStatusSharpTimer($steamId, $isVip)

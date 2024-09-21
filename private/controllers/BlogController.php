@@ -4,7 +4,7 @@
 
 include ($GLOBALS['config']['private_folder'] . '/classes/class.support.php');
 
-class SupportController
+class BlogController
 {
     protected $dbManager;
     private $dbConnection;
@@ -18,9 +18,9 @@ class SupportController
         // Connect specifically to the 'igfastdl_imperfectgamers' database for main website related data (auth)
         $this->dbConnection = $dbManager->getConnection('default');
         // Connect specifically to the 'igfastdl_imperfectgamers_support' database for support website related data
-        $this->secondaryConnection = $dbManager->getConnectionByDbName('default', 'igfastdl_imperfectgamers_support');
+        $this->secondaryConnection = $dbManager->getConnectionByDbName('default', 'igfastdl_imperfectgamers_blog');
         // Connect specifically to the 'simple_admins' database (gameserver database server default) for user role management
-        //$this->tertiaryConnection = $dbManager->getConnection('gameserver');
+        // $this->tertiaryConnection = $dbManager->getConnection('gameserver');
         // for logging purposes
         $this->logger = $logger;
 
@@ -462,3 +462,4 @@ class SupportController
     }
 
 }
+ 

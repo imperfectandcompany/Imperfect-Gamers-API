@@ -389,14 +389,22 @@ public function add($uri, $controller, $requestMethod, $documentation = null)
                     $validatedValue = filter_var($value, FILTER_VALIDATE_FLOAT);
                     break;
                 case 'bool':
-                    $validatedValue = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                    // Explicitly handle "true" and "false" strings
+                    if ($value === 'true') {
+                        $validatedValue = true;
+                    } elseif ($value === 'false') {
+                        $validatedValue = false; // Set false for the string "false"
+                    } else {
+                        // Use PHP's filter for other cases
+                        $validatedValue = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                    }
                     break;
                 default:
                     $validatedValue = $value;
             }
     
-            if ($validatedValue === false) {
-                return false;
+            if ($validatedValue === false && $paramType !== 'bool') {
+                return false; // Only return false if it's invalid and not a boolean 'false'
             }
     
             $validatedParams[] = $validatedValue;

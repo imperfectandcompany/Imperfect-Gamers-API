@@ -10,7 +10,7 @@ class Support
 {
     private $mainSiteDb; // Connection for main site related operations
     private $supportSiteDb;   // Connection for support site related operations
-    private $simpleAdminDb;  // Connection for game server role management related operations
+    // private $simpleAdminDb;  // Connection for game server role management related operations
 
     // Define action type constants
     const ARTICLE_DELETED = 'article_deleted';
@@ -35,14 +35,16 @@ class Support
      * Constructor for the Support class.
      * @param DatabaseConnector $mainSiteDb Connection object for the main website server database
      * @param DatabaseConnector $supportSiteDb Connection object for the support website server database
-     * @param DatabaseConnector $simpleAdminDb Connection object for the game server database
      */
 
-    public function __construct($mainSiteDb, $supportSiteDb, $simpleAdminDb)
+     // @param DatabaseConnector $simpleAdminDb Connection object for the game server database
+
+
+    public function __construct($mainSiteDb, $supportSiteDb)
     {
         $this->mainSiteDb = $mainSiteDb;
         $this->supportSiteDb = $supportSiteDb;
-        $this->simpleAdminDb = $simpleAdminDb;
+        // $this->simpleAdminDb = $simpleAdminDb;
     }
 
     public function fetchAllCategories()
@@ -1106,6 +1108,13 @@ public function deleteArticle($articleId, $userId)
     
         return $deletedArticleVersions;
     }
+
+    public function fetchAllArticles()
+    {
+        $query = "SELECT * FROM Articles WHERE DeletedAt IS NULL ORDER BY CreatedAt DESC";
+        return $this->supportSiteDb->query($query);
+    }
+
     
 }
 

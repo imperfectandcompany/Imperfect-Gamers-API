@@ -135,14 +135,14 @@ class User
      * @return bool Returns true if the account is successfully linked.
      * @throws Exception If the Steam ID is invalid or the update fails.
      */
-    public function linkSteamAccount($userId, $steam_id_64)
+    public function linkSteamAccount($user_id, $steam_id_64)
     {
         if (!$this->isValidSteamID($steam_id_64)) {
             throw new Exception("Invalid Steam ID.");
         }
 
         // First, check if a Steam account is already linked
-        $currentSteam = $this->hasSteam($userId);
+        $currentSteam = $this->hasSteam($user_id);
         if ($currentSteam['hasSteam']) {
             throw new Exception("A Steam account is already linked. Unlink the current account before linking a new one.");
         }
@@ -150,19 +150,20 @@ class User
         $steam_id = $this->steamid64_to_steamid2($steam_id_64);
 
         // Generate filter params using makeFilterParams function
-        $params = makeFilterParams([$steam_id, $steam_id_64, $userId]);
+        $params = makeFilterParams([$steam_id, $steam_id_64, $user_id]);
         try {
             // Call updateData method with generated filter params
             $updateResult = $this->dbObject->updateData(
                 "profiles",
                 "steam_id = :steam_id, steam_id_64 = :steam_id_64",
-                "user_id = :userId",
+                "user_id = :user_id",
                 $params
+                //array(':steam_id' => $steam_id, ':steam_id_64' => $steam_id_64, ':user_id' => $user_id)
             );
             if ($updateResult) {
                 return true;
             } else {
-                throw new Exception("Failed to link Steam account. Ensure common data integrity points and try again.");
+                throw new Exception("Ensure common data integrity points and try again.");
             }
         } catch (Exception $e) {
             // Consider checking the reason for failure: was it a database connection issue, or were no rows affected?
@@ -257,6 +258,28 @@ class User
 
         // Return true if the username is found, false otherwise
         return !empty($result) && isset($result[0]['username']);
+    }
+
+    
+    /**
+     * Check to see if email exists in the database.
+     *
+     * This method queries the database to determine if a specific email is in the database
+     * It returns the email if the email exists, false otherwise.
+     *
+     * @param string $email The email to check for existence.
+     * @return Integer User ID if the email exists, false otherwise.
+     */
+    public function doesEmailExist($email)
+    {
+        // Query to check if the user has a username
+
+        $result = $this->dbObject->query('SELECT username FROM users WHERE email = :email', [
+            ':email' => $email
+        ]);
+
+        // Return true if the username is found, false otherwise
+        return !empty($result) && isset($result[0]['id']);
     }
 
 
@@ -456,6 +479,7 @@ class User
             )
         );
         if ($result && count($result) > 0) {
+
             return $result[0]['id'];
         } else {
             return false;

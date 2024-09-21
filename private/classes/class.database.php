@@ -437,42 +437,44 @@ class DatabaseConnector
      * @param array|null $filter_params An optional array of filter parameters to use in the query
      *
      * @return array|true|false An array with the ID of the last inserted row, or an array with the ID of the row that was updated, or an array with a single database row that matches the query parameters, or true/false depending on the query type
-     */
-    public function runQuery($type, $query, $filter_params)
-    {
-        try {
-            $stmt = $this->dbConnection->prepare($query);
-            if ($filter_params) {
-                foreach ($filter_params as $key => $data) {
-                    $key++;
-                    $stmt->bindParam($key, $data['value'], $data['type']);
+     */    public function runQuery($type, $query, $filter_params)
+        {
+            try {
+                $stmt = $this->dbConnection->prepare($query);
+                if ($filter_params) {
+                    foreach ($filter_params as $key => $data) {
+                        $key++;
+                        $stmt->bindParam($key, $data['value'], $data['type']);
+                    }
                 }
+                $stmt->execute();
+                switch ($type) {
+                    case "single":
+                        return array("count" => $stmt->rowCount(), "result" => $stmt->fetch());
+                        break;
+                    case "insert": //insert
+                        return array("insertID" => $this->dbConnection->lastInsertId());
+                        break;
+                    case "update": //insert
+                        return array("affectedRows" => $stmt->rowCount());
+                        break;
+                    case "delete": //insert
+                        return array("insertID" => $this->dbConnection->lastInsertId());
+                        break;
+                    default:
+                        throw new Exception('No query type was specified.');
+                }
+            } catch (Exception $e) {
+                echo $e->getMessage();
+                $GLOBALS['messages']['errors'][] = '<b>Error: </b>' . $e->getMessage();
+                return false;
+            } catch (\PDOException $e) {
+                if ($e->getCode() === '23000') {
+                    $GLOBALS['messages']['errors'][] = '<b>UNIQUE CONSTRAINT: </b>' . $e->getMessage();
+                } else {
+                    $GLOBALS['messages']['errors'][] = '<b>INTERNAL ERROR: </b>' . $e->getMessage();
+                }
+                return false;
             }
-            $stmt->execute();
-
-            switch ($type) {
-                case "single":
-                    return array("count" => $stmt->rowCount(), "result" => $stmt->fetch());
-                case "insert": //insert
-                    return array("insertID" => $this->dbConnection->lastInsertId());
-                case "update": //insert
-                    return array("insertID" => $this->dbConnection->lastInsertId());
-                case "delete": //insert
-                    return array("insertID" => $this->dbConnection->lastInsertId());
-                default:
-                    throw new Exception('No query type was specified.');
-            }
-        } catch (Exception $e) {
-            echo $e->getMessage();
-            $GLOBALS['messages']['errors'][] = '<b>Error: </b>' . $e->getMessage();
-            return false;
-        } catch (\PDOException $e) {
-            if ($e->getCode() === '23000') {
-                $GLOBALS['messages']['errors'][] = '<b>UNIQUE CONSTRAINT: </b>' . $e->getMessage();
-            } else {
-                $GLOBALS['messages']['errors'][] = '<b>INTERNAL ERROR: </b>' . $e->getMessage();
-            }
-            return false;
         }
     }
-}
