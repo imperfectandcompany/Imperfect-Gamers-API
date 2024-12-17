@@ -11,8 +11,30 @@ class InfractionService
         }
     }
 
-    public function fetchAllInfractions($type = null, $page = 1, $perPage = 10)
+    public function fetchAllInfractions($type = null, $page = 1, $perPage = 10, $sortArray = ['created|DESC'])
     {
+        // Ensure valid sort order (either 'ASC' or 'DESC') and valid columns
+        $validSortByFields = ['created', 'player_steamid', 'player_name', 'duration', 'type', 'reason', 'status'];
+        $sortClauses = [];
+
+        foreach ($sortArray as $sortParam) {
+            list($sortBy, $sortOrder) = explode('|', $sortParam);
+            $sortOrder = strtoupper($sortOrder);
+
+            // Validate the sort column and order
+            if (!in_array($sortBy, $validSortByFields)) {
+                $sortBy = 'created'; // Default to 'created' if invalid column is provided
+            }
+            if ($sortOrder !== 'ASC' && $sortOrder !== 'DESC') {
+                $sortOrder = 'DESC'; // Default to DESC if invalid order is provided
+            }
+
+            $sortClauses[] = "$sortBy $sortOrder";
+        }
+
+        // Join the sort clauses to form the ORDER BY part of the query
+        $orderByClause = implode(', ', $sortClauses);
+
         // Calculate offset for pagination
         $offset = ($page - 1) * $perPage;
 
@@ -35,9 +57,8 @@ class InfractionService
         $totalItems = $totalCountResult ? (int) $totalCountResult[0]['total'] : 0;
         $totalPages = ceil($totalItems / $perPage);
 
-        // Now fetch the actual page data
-        $dataQuery = "SELECT * " . $baseQuery . " LIMIT ? OFFSET ?";
-
+        // Now fetch the actual page data, with dynamic sorting
+        $dataQuery = "SELECT * " . $baseQuery . " ORDER BY $orderByClause LIMIT ? OFFSET ?";
 
         $results = $this->dbConnection->query($dataQuery, [$perPage, $offset]);
 
@@ -202,57 +223,74 @@ class InfractionService
         }
     }
 
-    public function fetchInfractionsCount($type = null)
-    {
-        try {
-            $counts = ['total' => 0, 'active' => 0, 'expired' => 0];
+public function fetchInfractionsCount($type = null)
+{
+    try {
+        $counts = ['total' => 0, 'active' => 0, 'expired' => 0, 'reversed' => 0];
 
-            if ($type === null || $type === 'bans' || $type === 'comms') {
-                $tablesToQuery = [];
-                if ($type === null) {
-                    $tablesToQuery = ['sa_bans', 'sa_mutes'];
-                } elseif ($type === 'bans') {
-                    $tablesToQuery = ['sa_bans'];
-                } elseif ($type === 'comms') {
-                    $tablesToQuery = ['sa_mutes'];
-                }
+        // Define tables to query based on type
+        $tablesToQuery = [];
+        if ($type === null) {
+            $tablesToQuery = ['sa_bans', 'sa_mutes'];
+        } elseif ($type === 'bans') {
+            $tablesToQuery = ['sa_bans'];
+        } elseif ($type === 'comms') {
+            $tablesToQuery = ['sa_mutes'];
+        } else {
+            throw new InvalidArgumentException("Invalid infraction type provided. Allowed types: 'bans', 'comms', or null for all.");
+        }
 
-                foreach ($tablesToQuery as $table) {
-                    $activeQuery = "SELECT COUNT(*) AS count FROM {$table} WHERE status = 'ACTIVE'";
-                    $expiredQuery = "SELECT COUNT(*) AS count FROM {$table} WHERE status = 'EXPIRED'";
-
-                    $activeResult = $this->dbConnection->query($activeQuery);
-                    $expiredResult = $this->dbConnection->query($expiredQuery);
-
-                    if ($activeResult !== false && isset($activeResult[0])) {
-                        $counts['active'] += (int) $activeResult[0]['count'];
-                    }
-
-                    if ($expiredResult !== false && isset($expiredResult[0])) {
-                        $counts['expired'] += (int) $expiredResult[0]['count'];
-                    }
-                }
-                $counts['total'] = $counts['active'] + $counts['expired'];
-            } else {
-                throw new InvalidArgumentException('Invalid infraction type provided. Valid types are null (for all), "bans", or "comms".');
+        foreach ($tablesToQuery as $table) {
+            // Construct queries based on table
+            if ($table === 'sa_bans') {
+                // For sa_bans, possible statuses: 'ACTIVE', 'UNBANNED', 'EXPIRED', ''
+                $activeQuery = "SELECT COUNT(*) AS count FROM {$table} WHERE status = 'ACTIVE'";
+                $expiredQuery = "SELECT COUNT(*) AS count FROM {$table} WHERE status = 'EXPIRED'";
+                $otherQuery = "SELECT COUNT(*) AS count FROM {$table} WHERE status = 'UNBANNED' OR status = ''";
+            } elseif ($table === 'sa_mutes') {
+                // For sa_mutes, possible statuses: 'ACTIVE', 'UNMUTED', 'EXPIRED', ''
+                $activeQuery = "SELECT COUNT(*) AS count FROM {$table} WHERE status = 'ACTIVE'";
+                $expiredQuery = "SELECT COUNT(*) AS count FROM {$table} WHERE status = 'EXPIRED'";
+                $otherQuery = "SELECT COUNT(*) AS count FROM {$table} WHERE status = 'UNMUTED' OR status = ''";
             }
 
-            return $counts;
-        } catch (\Exception $e) {
-            // Handle any exceptions that occur within the try block
-            $GLOBALS['messages']['errors'][] = '<b>Error fetching infraction count: </b>' . $e->getMessage();
-            return false;
+            // Execute queries
+            $activeResult = $this->dbConnection->query($activeQuery);
+            $expiredResult = $this->dbConnection->query($expiredQuery);
+            $otherResult = $this->dbConnection->query($otherQuery);
+
+            // Accumulate counts
+            if ($activeResult !== false && isset($activeResult[0])) {
+                $counts['active'] += (int) $activeResult[0]['count'];
+            }
+
+            if ($expiredResult !== false && isset($expiredResult[0])) {
+                $counts['expired'] += (int) $expiredResult[0]['count'];
+            }
+
+            if ($otherResult !== false && isset($otherResult[0])) {
+                $counts['reversed'] += (int) $otherResult[0]['count'];
+            }
         }
+
+        // Calculate total
+        $counts['total'] = $counts['active'] + $counts['expired'] + $counts['reversed'];
+        return $counts;
+    } catch (\Exception $e) {
+        // Log and handle exceptions appropriately
+        $GLOBALS['messages']['errors'][] = '<b>Error fetching infraction count: </b>' . $e->getMessage();
+        return false;
     }
+}
 
 
-
-    public function fetchInfractionsCountByType($type = null)
-    {
+public function fetchInfractionsCountByType($type = null)
+{
+    try {
+        $counts = ['total' => 0, 'active' => 0, 'expired' => 0, 'reversed' => 0];
         $queryParts = [];
         $params = [];
 
-        // Define the base query parts depending on the infraction type
         switch ($type) {
             case 'bans':
                 $baseTable = "sa_bans";
@@ -262,50 +300,75 @@ class InfractionService
                 break;
             case 'mutes':
                 $baseTable = "sa_mutes";
-                $queryParts[] = "type = 'mute'";
+                $queryParts[] = "type = 'MUTE'";
                 break;
             case 'gags':
                 $baseTable = "sa_mutes";
-                $queryParts[] = "type = 'gag'";
+                $queryParts[] = "type = 'GAG'";
+                break;
+            case 'silences':
+                $baseTable = "sa_mutes";
+                $queryParts[] = "type = 'SILENCE'";
                 break;
             default:
-                // Handle the default case where no specific type is requested
-                // This requires combining counts from both tables, which is handled later
-                $baseTable = null;
+                throw new InvalidArgumentException("Invalid infraction type provided. Allowed types are 'bans', 'comms', 'mutes', 'gags', or 'silences'.");
         }
 
         if ($baseTable) {
-            // Construct the query for a specific table
             $where = !empty($queryParts) ? "WHERE " . implode(" AND ", $queryParts) : "";
+
+            // Define 'reversed' condition based on table
+            if ($baseTable === 'sa_bans') {
+                $reversedCondition = "(status = 'UNBANNED' OR status = '')";
+            } elseif ($baseTable === 'sa_mutes') {
+                $reversedCondition = "(status = 'UNMUTED' OR status = '')";
+            }
+
             $queryActive = "SELECT COUNT(*) AS active FROM {$baseTable} {$where} AND status = 'ACTIVE'";
             $queryExpired = "SELECT COUNT(*) AS expired FROM {$baseTable} {$where} AND status = 'EXPIRED'";
+            $queryReversed = "SELECT COUNT(*) AS reversed FROM {$baseTable} {$where} AND {$reversedCondition}";
         } else {
-            // Construct combined queries for both tables when no specific type is requested
-            $queryActive = "SELECT (SELECT COUNT(*) FROM sa_bans WHERE status = 'ACTIVE') + (SELECT COUNT(*) FROM sa_mutes WHERE status = 'ACTIVE') AS active";
-            $queryExpired = "SELECT (SELECT COUNT(*) FROM sa_bans WHERE status = 'EXPIRED') + (SELECT COUNT(*) FROM sa_mutes WHERE status = 'EXPIRED') AS expired";
+            // Combine counts from both tables for total counts
+            $queryActive = "SELECT 
+                                (SELECT COUNT(*) FROM sa_bans WHERE status = 'ACTIVE') + 
+                                (SELECT COUNT(*) FROM sa_mutes WHERE status = 'ACTIVE') AS active";
+            $queryExpired = "SELECT 
+                                (SELECT COUNT(*) FROM sa_bans WHERE status = 'EXPIRED') + 
+                                (SELECT COUNT(*) FROM sa_mutes WHERE status = 'EXPIRED') AS expired";
+            $queryReversed = "SELECT 
+                                (SELECT COUNT(*) FROM sa_bans WHERE status = 'UNBANNED' OR status = '') + 
+                                (SELECT COUNT(*) FROM sa_mutes WHERE status = 'UNMUTED' OR status = '') AS reversed";
         }
 
-        // Execute queries and fetch results
+        // Execute queries
         $activeResult = $this->dbConnection->query($queryActive, $params);
         $expiredResult = $this->dbConnection->query($queryExpired, $params);
+        $reversedResult = $this->dbConnection->query($queryReversed, $params);
 
-        if ($activeResult === false || !isset($activeResult[0]) || $expiredResult === false || !isset($expiredResult[0])) {
+        // Validate results
+        if (($activeResult === false || !isset($activeResult[0])) ||
+            ($expiredResult === false || !isset($expiredResult[0])) ||
+            ($reversedResult === false || !isset($reversedResult[0]))) {
             throw new RuntimeException('Failed to fetch infractions count.');
         }
 
-        // Aggregate results
-        $counts = [
-            'active' => (int) $activeResult[0]['active'],
-            'expired' => (int) $expiredResult[0]['expired']
-        ];
+        // Aggregate counts
+        $counts['active'] = (int) $activeResult[0]['active'];
+        $counts['expired'] = (int) $expiredResult[0]['expired'];
+        $counts['reversed'] = (int) $reversedResult[0]['reversed'];
 
-        // Return counts for all, active, and expired infractions
-        return [
-            'total' => $counts['active'] + $counts['expired'],
-            'active' => $counts['active'],
-            'expired' => $counts['expired']
-        ];
+        // Calculate total
+        $counts['total'] = $counts['active'] + $counts['expired'] + $counts['reversed'];
+
+        return $counts;
+    } catch (\Exception $e) {
+        // Log and handle exceptions appropriately
+        $GLOBALS['messages']['errors'][] = '<b>Error fetching infraction count: </b>' . $e->getMessage();
+        return false;
     }
+}
+
+
 
     public function searchInfractionsByQuery($query, $type = null, $page = 1, $perPage = 10)
     {

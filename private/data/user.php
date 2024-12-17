@@ -14,6 +14,8 @@ if($dbManager->getConnection() && $GLOBALS['logged_in']){
             if (empty($GLOBALS['user_data']['avatar'])) {
                 $GLOBALS['user_data']['avatar'] = $GLOBALS['config']['default_avatar'];
             }
+            $userModel = new User($dbManager->getConnection());
+                $GLOBALS['user_permissions'] = $userModel->getUserPermissions($GLOBALS['user_id']);
         } else {
             // Handle cases where user data could not be fetched or result is empty
             // This could be due to the user not existing in the database

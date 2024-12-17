@@ -93,7 +93,6 @@ class Support
             throw new Exception('This category title is already taken!');
         }
 
-        // If the username does not exist, proceed to insert the new username
         $rows = 'title';
         $values = '?';
         $params = makeFilterParams([$title]);
@@ -1109,11 +1108,20 @@ public function deleteArticle($articleId, $userId)
         return $deletedArticleVersions;
     }
 
-    public function fetchAllArticles()
-    {
-        $query = "SELECT * FROM Articles WHERE DeletedAt IS NULL ORDER BY CreatedAt DESC";
-        return $this->supportSiteDb->query($query);
-    }
+
+    // public function fetchAllArticles()
+    // {
+    //     $query = "SELECT * FROM Articles WHERE DeletedAt IS NULL ORDER BY CreatedAt DESC";
+    //     return $this->supportSiteDb->query($query);
+    // }
+
+public function fetchAllArticles()
+{
+$query = "SELECT Articles.* FROM Articles INNER JOIN Categories ON Articles.CategoryID = Categories.CategoryID WHERE Articles.DeletedAt IS NULL AND Categories.DeletedAt IS NULL ORDER BY Articles.CreatedAt DESC";
+    return $this->supportSiteDb->query($query);
+}
+
+
 
     
 }

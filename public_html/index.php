@@ -91,6 +91,12 @@ require_once $GLOBALS['config']['private_folder'] . '/classes/class.DatabaseMana
 require_once $GLOBALS['config']['private_folder'] . '/classes/class.user.php';
 require_once $GLOBALS['config']['private_folder'] . '/classes/class.dev.php';
 
+require_once $GLOBALS['config']['private_folder'] . '/classes/class.permissionEvaluator.php';
+require_once $GLOBALS['config']['private_folder'] . '/classes/class.permissionManager.php';
+require_once $GLOBALS['config']['private_folder'] . '/classes/class.permissionGuard.php';
+require_once $GLOBALS['config']['private_folder'] . '/classes/class.dev.php';
+
+
 // Instantiate the DatabaseManager
 $dbManager = new DatabaseManager();
 
@@ -129,7 +135,37 @@ if (empty($token)) {
 $GLOBALS['config']['testmode'] = TESTMODE; //This initializes the test value
 
 // authenticate the user
-$result = authenticate_user($token, $dbManager->getConnection());
+$dbConnection = $dbManager->getConnection('default');
+$result = authenticate_user($token, $dbConnection);
+PermissionManager::loadPermissionsFromDatabase($dbConnection);
+PermissionManager::loadRolesFromDatabase($dbConnection);
+
+$allPermissions = PermissionManager::getPermissions($dbConnection);
+$requiredPermissions = [
+    'admin.users.view',
+    'admin.users.edit',
+    'admin.users.logs',
+    'admin.users.devices',
+    'admin.users.ips',
+    'roles.view',
+    'roles.create',
+    'roles.edit',
+    'roles.delete',
+    'permissions.view',
+    'permissions.create',
+    'permissions.edit',
+    'permissions.delete',
+    'users.roles.assign',
+    'users.roles.view',
+    'users.roles.remove'
+];
+
+$missingPermissions = array_diff($requiredPermissions, $allPermissions);
+
+if (!empty($missingPermissions)) {
+    die("Missing Permissions: " . implode(', ', $missingPermissions));
+}
+
 
 // get an instance of the Devmode class
 $GLOBALS['config']['devmode'] = DEVMODE;
@@ -174,6 +210,46 @@ if (DEVMODE == 1 && $isLoggedIn) {
 // );
 
 // $message = $localizationManager->getLocalizedString('ERROR_LOGIN_FAILED');
+
+// Only if on local mode
+// // Register permissions
+// PermissionManager::registerPermission('support.articles.read');
+// PermissionManager::registerPermission('support.articles.create');
+// PermissionManager::registerPermission('support.articles.edit');
+// PermissionManager::registerPermission('support.articles.delete');
+// PermissionManager::registerPermission('support.tickets.view');
+// PermissionManager::registerPermission('support.tickets.respond');
+// PermissionManager::registerPermission('support.tickets.close');
+
+// // Guest role
+// PermissionManager::registerRole('GUEST', [
+//     'support.articles.read',
+// ]);
+
+// // Member role inherits from GUEST
+// PermissionManager::registerRole('MEMBER', [
+//     'support.articles.create',
+// ], [], ['GUEST']);
+
+// // Moderator role inherits from MEMBER
+// PermissionManager::registerRole('MODERATOR', [
+//     'support.articles.*',
+//     '-support.articles.delete', // Revokes delete permission
+//     'support.tickets.*',
+// ], ['maxBanDuration' => 7], ['MEMBER']);
+
+// // Admin role inherits from MODERATOR
+// PermissionManager::registerRole('ADMIN', [
+//     '*', // Grants all permissions
+//     '-support.articles.delete', // Example of revoking even with wildcard
+// ], [], ['MODERATOR']);
+
+// // Limited Moderator role inherits from MEMBER
+// PermissionManager::registerRole('LIMITED_MODERATOR', [
+//     'support.articles.*',
+//     '-support.articles.create',
+//     '^support.articles.edit', // Exception to re-grant 'edit' permission
+// ], [], ['MEMBER']);
 
 
 // handle case where user is not authenticated
@@ -266,10 +342,6 @@ $mutualRoute->addDocumentation('/infractions/details/:steamId', 'GET', 'Fetches 
 $mutualRoute->add('/infractions/check/:steamId', 'InfractionController@checkInfractionsBySteamId', 'GET');
 $mutualRoute->addDocumentation('/infractions/check/:steamId', 'GET', 'Checks for any infractions by Steam ID.');
 
-
-$mutualRoute->add('/premium/support/status/:email', 'PremiumController@checkPremiumStatusEmail', 'GET');
-$mutualRoute->addDocumentation('/premium/support/status/:email', 'GET', 'Checks if a user is a premium member from email.');
-
 // Route to check for any infractions by Admin Steam ID
 $mutualRoute->add('/infractions/check/admin/:adminId', 'InfractionController@checkInfractionsByAdminId', 'GET');
 $mutualRoute->addDocumentation('/infractions/check/admin/:adminId', 'GET', 'Checks for any infractions placed by Admin Steam ID.');
@@ -282,10 +354,13 @@ $mutualRoute->addDocumentation('/infractions/details/admin/:adminSteamId', 'GET'
 $mutualRoute->add('/infractions/details/admin/:adminSteamId/p/:page', 'InfractionController@getInfractionDetailsByAdminIdPaginated', 'GET');
 $mutualRoute->addDocumentation('/infractions/details/admin/:adminSteamId/p/:page', 'GET', 'Fetches paginated infraction details by Admin Steam ID.');
 
-$mutualRoute->add('/blog/fetch/all/articles', 'SupportController@fetchAllArticles', 'GET');
+$mutualRoute->add('/blog/fetch/all/articles', 'BlogController@fetchAllArticles', 'GET');
 $mutualRoute->addDocumentation('/blog/fetch/all/articles', 'GET', 'Gets all of the articles from the blog.');
 
 // ## FOR SUPPORT.IMPERFECTGAMERS.ORG
+
+$mutualRoute->add('/premium/support/status/:email', 'PremiumController@checkPremiumStatusEmail', 'GET');
+$mutualRoute->addDocumentation('/premium/support/status/:email', 'GET', 'Checks if a user is a premium member from email.');
 
 // Route to fetch an article by ID
 $mutualRoute->add('/support/article/fetchById/:id', 'SupportController@fetchArticleById', 'GET');
@@ -870,6 +945,70 @@ $router->addDocumentation('/media/top-level', 'GET', 'Fetches the top-level fold
 
 $router->add('/media/logs', 'MediaController@getMediaLogs', 'GET');
 $router->addDocumentation('/media/logs', 'GET', 'Fetches logs for media actions.');
+
+
+// Admin Routes
+$router->add('/admin/users', 'AdminController@getUsersList', 'GET', 'admin.users.view');
+
+// User List with Pagination (for specifying a page)
+$router->add('/admin/users/p/:page', 'AdminController@getUsersList', 'GET', 'admin.users.view');
+
+// User List with Pagination and Results per Page
+$router->add('/admin/users/p/:page/pp/:perPage', 'AdminController@getUsersList', 'GET', 'admin.users.view');
+
+// Basic Search with Query
+$router->add('/admin/users/search/:query', 'AdminController@searchUsers', 'GET', 'admin.users.view');
+
+// Search with Query and Pagination (for specifying a page)
+$router->add('/admin/users/search/:query/p/:page', 'AdminController@searchUsers', 'GET', 'admin.users.view');
+
+// Search with Query, Pagination, and Results per Page
+$router->add('/admin/users/search/:query/p/:page/pp/:perPage', 'AdminController@searchUsers', 'GET', 'admin.users.view');
+
+$router->add('/admin/users/:userId', 'AdminController@updateUser', 'PUT', 'admin.users.edit');
+$router->add('/admin/users/:userId/logs', 'AdminController@getUserLogs', 'GET', 'admin.users.logs');
+
+// Get user details with logs and devices pagination
+$router->add('/admin/users/:userId', 'AdminController@getUserDetails', 'GET', 'admin.users.view');
+$router->add('/admin/users/:userId/ppl/:perPageLog/ppd/:perPageDevice', 'AdminController@getUserDetails', 'GET', 'admin.users.view');
+
+// Get user logs with pagination
+$router->add('/admin/users/:userId/logs/p/:page/pp/:perPage', 'AdminController@getUserLogs', 'GET', 'admin.users.logs');
+
+// Search user logs with pagination
+$router->add('/admin/users/:userId/logs/search/:query/p/:page/pp/:perPage', 'AdminController@searchUserLogs', 'GET', 'admin.users.logs.search');
+
+// Get user devices with pagination
+$router->add('/admin/users/:userId/devices/p/:page/pp/:perPage', 'AdminController@getUserDevices', 'GET', 'admin.users.devices');
+
+// Search user devices with pagination
+$router->add('/admin/users/:userId/devices/search/:query/p/:page/pp/:perPage', 'AdminController@searchUserDevices', 'GET', 'admin.users.devices.search');
+
+
+$router->add('/admin/users/:userId/last-login', 'AdminController@getLastLoginTime', 'GET', 'admin.users.view');
+$router->add('/admin/users/:userId/devices', 'AdminController@getUserDevices', 'GET', 'admin.users.devices');
+$router->add('/admin/users/:userId/ips', 'AdminController@getUserIPs', 'GET', 'admin.users.ips');
+
+// Roles
+$router->add('/roles', 'RolesController@getAllRoles', 'GET', 'roles.view');
+$router->add('/roles', 'RolesController@createRole', 'POST', 'roles.create');
+$router->add('/roles/:roleId', 'RolesController@getRoleById', 'GET', 'roles.view');
+$router->add('/roles/:roleId', 'RolesController@updateRole', 'PUT', 'roles.edit');
+$router->add('/roles/:roleId', 'RolesController@deleteRole', 'DELETE', 'roles.delete');
+
+// Permissions
+$router->add('/permissions', 'PermissionsController@getAllPermissions', 'GET', 'permissions.view');
+$router->add('/permissions', 'PermissionsController@createPermission', 'POST', 'permissions.create');
+$router->add('/permissions/:permissionId', 'PermissionsController@getPermissionById', 'GET', 'permissions.view');
+$router->add('/permissions/:permissionId', 'PermissionsController@updatePermission', 'PUT', 'permissions.edit');
+$router->add('/permissions/:permissionId', 'PermissionsController@deletePermission', 'DELETE', 'permissions.delete');
+
+// User Role Assignment
+$router->add('/users/:userId/roles', 'UserController@assignRolesToUser', 'POST', 'users.roles.assign');
+$router->add('/users/:userId/roles', 'UserController@getUserRoles', 'GET', 'users.roles.view');
+$router->add('/users/:userId/roles/:roleId', 'UserController@removeRoleFromUser', 'DELETE', 'users.roles.remove');
+
+
 
 
  // Routes for folders

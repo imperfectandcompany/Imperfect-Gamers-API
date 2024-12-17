@@ -436,6 +436,68 @@ class UserController
         }
     }
 
+    public function assignRolesToUser($userId)
+    {
+        $user = new User($this->dbConnection);
+        
+        $data = json_decode(file_get_contents('php://input'), true);
+        $roles = $data['roles'] ?? [];
+
+        if (empty($roles)) {
+            ResponseHandler::sendResponse('error', ['message' => 'No roles provided'], ERROR_BAD_REQUEST);
+            return;
+        }
+
+        try {
+            foreach ($roles as $roleName) {
+                $user->assignRole($userId, $roleName);
+            }
+            ResponseHandler::sendResponse('success', ['message' => 'Roles assigned successfully'], SUCCESS_OK);
+        } catch (Exception $e) {
+            $this->logger->error('Failed to assign roles', ['exception' => $e]);
+            ResponseHandler::sendResponse('error', ['message' => 'Failed to assign roles'], ERROR_INTERNAL_SERVER);
+        }
+    }
+
+    public function getUserRoles($userId)
+    {
+        $user = new User($this->dbConnection);
+
+        try {
+            $roles = $user->listUserRoles($userId);
+            ResponseHandler::sendResponse('success', ['roles' => $roles], SUCCESS_OK);
+        } catch (Exception $e) {
+            $this->logger->error('Failed to fetch user roles', ['exception' => $e]);
+            ResponseHandler::sendResponse('error', ['message' => 'Failed to fetch user roles'], ERROR_INTERNAL_SERVER);
+        }
+    }
+
+    public function removeRoleFromUser($userId, $roleId)
+    {
+        $user = new User($this->dbConnection);
+
+        try {
+            $roleName = $this->getRoleNameById($roleId);
+            if ($roleName) {
+                $user->removeRole($userId, $roleName);
+                ResponseHandler::sendResponse('success', ['message' => 'Role removed successfully'], SUCCESS_OK);
+            } else {
+                ResponseHandler::sendResponse('error', ['message' => 'Role not found'], ERROR_NOT_FOUND);
+            }
+        } catch (Exception $e) {
+            $this->logger->error('Failed to remove role', ['exception' => $e]);
+            ResponseHandler::sendResponse('error', ['message' => 'Failed to remove role'], ERROR_INTERNAL_SERVER);
+        }
+    }
+
+    // Helper method to get role name by ID
+    private function getRoleNameById($roleId)
+    {
+        $query = 'SELECT name FROM roles WHERE id = :id';
+        $params = [':id' => $roleId];
+        $result = $this->dbConnection->query($query, $params);
+        return $result[0]['name'] ?? null;
+    }
 
     /**
      * Checks if the current user has linked a Steam account based on a global variable.

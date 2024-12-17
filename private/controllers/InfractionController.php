@@ -15,28 +15,47 @@ class InfractionController
     }
 
 
-    public function getAllInfractions(?int $perPage = null)
-    {
-        try {
-            $perPage = $perPage ?? 10; // Define how many items we want per page
-            // Instantiate the service with database connection
-            $infractionService = new InfractionService($this->dbConnection);
-            $results = $infractionService->fetchAllInfractions(null, 1, $perPage);
+public function getAllInfractions(?int $perPage = null)
+{
+    try {
+        $perPage = $perPage ?? 10; // Define how many items we want per page
+        $sortParams = $_GET['sort'] ?? 'created|DESC'; // Get the 'sort' parameter, default to 'created|DESC'
 
-            // Log the action
-            // Note: Make sure to replace '0' with the actual user ID where applicable
-            $this->logger->log(0, LOG_FETCH_ALL_INFRACTIONS, 'all');
+        // Split sortParams by comma to allow multiple sorting (e.g., 'created|DESC,player_name|ASC')
+        $sortArray = explode(',', $sortParams);
 
-            // Send successful response with data
-            ResponseHandler::sendResponse('success', $results, SUCCESS_OK);
-        } catch (InvalidArgumentException $e) {
-            throwError($e->getMessage(), ERROR_INVALID_INPUT);
-        } catch (RuntimeException $e) {
-            throwError($e->getMessage(), ERROR_INTERNAL_SERVER);
-        } catch (Exception $e) {
-            throwError($e->getMessage(), ERROR_INTERNAL_SERVER);
+        // Validate the sort array
+        foreach ($sortArray as $sortParam) {
+            if (!preg_match('/^[a-zA-Z_]+\|(ASC|DESC)$/', $sortParam)) {
+                throw new InvalidArgumentException('Invalid sort parameter format. Expected format: column|ASC or column|DESC.');
+            }
         }
-    }
+
+        // Instantiate the service with database connection
+        $infractionService = new InfractionService($this->dbConnection);
+        $results = $infractionService->fetchAllInfractions(null, 1, $perPage, $sortArray);
+
+        // Log the action
+        $this->logger->log(0, LOG_FETCH_ALL_INFRACTIONS, 'all');
+        
+        // Send successful response with data
+        ResponseHandler::sendResponse('success', $results, SUCCESS_OK);
+    } catch (InvalidArgumentException $e) {
+        throwError($e->getMessage(), ERROR_INVALID_INPUT);
+        $this->logger->log('error', 'fetch_infractions_error', ['error' => $e->getMessage()]);
+        return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
+    } catch (RuntimeException $e) {
+        throwError($e->getMessage(), ERROR_INTERNAL_SERVER);
+        $this->logger->log('error', 'fetch_infractions_error', ['error' => $e->getMessage()]);
+        return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
+    } catch (Exception $e) {
+        throwError($e->getMessage(), ERROR_INTERNAL_SERVER);
+        $this->logger->log('error', 'fetch_infractions_error', ['error' => $e->getMessage()]);
+        return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 500);
+    }       
+}
+
+
 
     public function getInfractions(string $type)
     {
@@ -93,22 +112,41 @@ class InfractionController
     }
 
 
-    public function getAllInfractionsPaginated($page, ?int $perPage = null) {
-        try {
-            $page = intval($page); // Ensure page is an integer
-            $perPage = $perPage ?? 10; // Define how many items you want per page
+public function getAllInfractionsPaginated($page, ?int $perPage = null)
+{
+    try {
+        $page = intval($page); // Ensure page is an integer
+        $perPage = $perPage ?? 10; // Define how many items we want per page
+        $sortParams = $_GET['sort'] ?? 'created|DESC'; // Get the 'sort' parameter, default to 'created|DESC'
 
-            $infractionService = new InfractionService($this->dbConnection);
-            $response = $infractionService->fetchAllInfractions(null, $page, $perPage);
+        // Split sortParams by comma to allow multiple sorting (e.g., 'created|DESC,player_name|ASC')
+        $sortArray = explode(',', $sortParams);
 
-            // Log the action, adjust logging as necessary
-            $this->logger->log(0, 'FETCH_ALL_INFRACTIONS_PAGINATED', "Fetching page $page of all infractions.");
-
-            ResponseHandler::sendResponse('success', $response, SUCCESS_OK);
-        } catch (Exception $e) {
-            throwError($e->getMessage(), ERROR_INTERNAL_SERVER);
+        // Validate the sort array
+        foreach ($sortArray as $sortParam) {
+            if (!preg_match('/^[a-zA-Z_]+\|(ASC|DESC)$/', $sortParam)) {
+                throw new InvalidArgumentException('Invalid sort parameter format. Expected format: column|ASC or column|DESC.');
+            }
         }
+
+        $infractionService = new InfractionService($this->dbConnection);
+        $response = $infractionService->fetchAllInfractions(null, $page, $perPage, $sortArray);
+
+        // Log the action, adjust logging as necessary
+        $this->logger->log(0, 'FETCH_ALL_INFRACTIONS_PAGINATED', "Fetching page $page of all infractions with sorting.");
+
+        ResponseHandler::sendResponse('success', $response, SUCCESS_OK);
+    } catch (InvalidArgumentException $e) {
+        $this->logger->log('error', 'fetch_infractions_error', ['error' => $e->getMessage()]);
+        return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], ERROR_INVALID_INPUT);
+    } catch (RuntimeException $e) {
+        $this->logger->log('error', 'fetch_infractions_error', ['error' => $e->getMessage()]);
+        return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], ERROR_INTERNAL_SERVER);
+    } catch (Exception $e) {
+        $this->logger->log('error', 'fetch_infractions_error', ['error' => $e->getMessage()]);
+        return ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], ERROR_INTERNAL_SERVER);
     }
+}
 
     public function getInfractionsByTypePaginated($type, $page)
     {
@@ -129,42 +167,53 @@ class InfractionController
     }
 
 
-    public function getInfractionsAllCount() {
-        try {
-            $infractionService = new InfractionService($this->dbConnection);
-            $count = $infractionService->fetchInfractionsCount();
-    
-            // Log the action
-            $this->logger->log(0, 'LOG_FETCH_INFRACTIONS_COUNT', 'all');
-    
-            // Send successful response with count
-            ResponseHandler::sendResponse('success', ['count' => $count], SUCCESS_OK);
-        } catch (Exception $e) {
-            throwError($e->getMessage(), ERROR_INTERNAL_SERVER);
-        }
+public function getInfractionsAllCount() {
+    try {
+        $infractionService = new InfractionService($this->dbConnection);
+        $count = $infractionService->fetchInfractionsCount();
+
+        // Log the action
+        $this->logger->log(0, 'LOG_FETCH_INFRACTIONS_COUNT', 'all');
+
+        // Send successful response with count
+        ResponseHandler::sendResponse('success', ['count' => $count], SUCCESS_OK);
+    } catch (InvalidArgumentException $e) {
+        // Handle invalid argument error (e.g., invalid type)
+        $this->logger->log('error', 'fetch_infractions_count_invalid_argument', ['error' => $e->getMessage()]);
+        ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 400);
+    } catch (Exception $e) {
+        // Handle any other internal errors
+        $this->logger->log('error', 'fetch_infractions_count_error', ['error' => $e->getMessage()]);
+        ResponseHandler::sendResponse('error', ['message' => 'Internal Server Error'], 500);
     }
+}
 
-
-
-    public function getInfractionsTypeCount($type = null) {
-        try {
-            $infractionService = new InfractionService($this->dbConnection);
-            if ($type === 'mutes' || $type === 'gags') {
-                $count = $infractionService->fetchInfractionsCountByType($type);
-            } else {
+public function getInfractionsTypeCount($type = null) {
+    try {
+        $infractionService = new InfractionService($this->dbConnection);
+        if (in_array($type, ['mutes', 'gags', 'silences'])) {
+            $count = $infractionService->fetchInfractionsCountByType($type);
+        } else if (in_array($type, ['bans'])){
                 $count = $infractionService->fetchInfractionsCount($type);
-            }
-    
-            // Log the action
-            $this->logger->log(0, 'LOG_FETCH_INFRACTIONS_COUNT', ['type' => $type ?? 'all']);
-    
-            // Send successful response with count
-            ResponseHandler::sendResponse('success', ['count' => $count], SUCCESS_OK);
-        } catch (Exception $e) {
-            throwError($e->getMessage(), ERROR_INTERNAL_SERVER);
+        } else {
+                throw new InvalidArgumentException("Invalid infraction type provided: {$type}");
         }
-    }
 
+        // Log the action
+        $this->logger->log(0, 'LOG_FETCH_INFRACTIONS_COUNT', ['type' => $type]);
+
+        // Send successful response with count
+        ResponseHandler::sendResponse('success', ['count' => $count], SUCCESS_OK);
+    } catch (InvalidArgumentException $e) {
+        // Handle invalid argument error (e.g., invalid type)
+        $this->logger->log('error', 'fetch_infractions_count_type_invalid_argument', ['error' => $e->getMessage()]);
+        ResponseHandler::sendResponse('error', ['message' => $e->getMessage()], 400);
+    } catch (Exception $e) {
+        // Handle any other internal errors
+        $this->logger->log('error', 'fetch_infractions_count_type_error', ['error' => $e->getMessage()]);
+        ResponseHandler::sendResponse('error', ['message' => 'Internal Server Error'], 500);
+    }
+}
 
 public function searchInfractionsByName(string $query, ?int $page = null, ?int $perPage = null) {
     $page = $page ?? 1;

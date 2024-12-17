@@ -369,6 +369,52 @@ class User
      * @return array|false The query result array containing the user's permissions if found, otherwise false.
      */
 
+    public function getUserPermissions($userId) {
+        // Fetch user roles from the database
+        $roles = $this->getUserRoles($userId);
+
+        // Compile permissions using PermissionEvaluator
+        $permissions = PermissionEvaluator::compilePermissions($roles);
+
+        return $permissions;
+    }
+
+public function getUserRoles($userId) {
+    $query = 'SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = :id';
+    $params = [':id' => $userId]; // Passed as scalar
+    $result = $this->dbObject->query($query, $params);
+    $roles = array_column($result, 'name');
+    return $roles;
+}
+
+    public function assignRole($userId, $roleName) {
+        $query = 'INSERT INTO user_roles (user_id, role_name) VALUES (:user_id, :role_name)';
+        $params = [':user_id' => $userId, ':role_name' => $roleName];
+        $this->dbObject->query($query, $params);
+    }
+
+    public function removeRole($userId, $roleName) {
+        $query = 'DELETE FROM user_roles WHERE user_id = :user_id AND role_name = :role_name';
+        $params = [':user_id' => $userId, ':role_name' => $roleName];
+        $this->dbObject->query($query, $params);
+    }
+
+    public function listUserRoles($userId) {
+        return $this->getUserRoles($userId);
+    }
+
+    public function getUserVariables($userId) {     
+        $roles = $this->getUserRoles($userId);
+
+        $variables = [];
+
+        foreach ($roles as $roleName) {
+            $roleVariables = PermissionManager::getRoleVariables($roleName);
+            $variables = array_merge($variables, $roleVariables);
+        }
+
+        return $variables;
+    }
 
     private function generateAndAssociateToken($uid, $deviceInfo)
     {

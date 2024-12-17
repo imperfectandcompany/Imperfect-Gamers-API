@@ -7,7 +7,8 @@ class Router {
     
 // TODO THROW ERROR IF LOADED CLASS USERS DUPLICATE CLASS NAME
 
-public function add($uri, $controller, $requestMethod, $documentation = null)
+public function add($uri, $controller, $requestMethod, $requiredPermission = null, $documentation = null)
+
     {
 
         // Check if the URI is valid
@@ -106,11 +107,12 @@ public function add($uri, $controller, $requestMethod, $documentation = null)
             ];
         }
     
-        $this->routes[$uri]['methods'][$requestMethod] = [
-            'controller' => $controller,
-        ];
+    $this->routes[$uri]['methods'][$requestMethod] = [
+        'controller' => $controller,
+        'requiredPermission' => $requiredPermission, // Set the requiredPermission key
+        'documentation' => $documentation,
+    ];
 
-        $this->routes[$uri]['methods'][$requestMethod]['documentation'] = $documentation;
     }
 
     public function addDocumentation($uri, $requestMethod, $documentation)
@@ -191,6 +193,8 @@ public function add($uri, $controller, $requestMethod, $documentation = null)
         $url = implode('/', $url);
         $httpMethod = $_SERVER['REQUEST_METHOD'];
         $routeMatched = false; // Flag to keep track if a route was dispatched
+
+
 
         // Loop through the routes to find a match
         foreach ($this->routes as $route => $config) {
@@ -288,8 +292,8 @@ public function add($uri, $controller, $requestMethod, $documentation = null)
                 if ($requestMethod === $httpMethod) {
                     // Extract parameters from different sources (e.g., URL, body)
                     $routeBodyParams = [];
-                                                    // Extract parameters from the request body (e.g., JSON)
-                                                    $postBody = json_decode(file_get_contents("php://input"));
+                    // Extract parameters from the request body (e.g., JSON)
+                    $postBody = json_decode(file_get_contents("php://input"));
                     foreach ($routeParams as $paramName => $source) {
                         switch ($source) {
                             case 'body':
@@ -310,6 +314,24 @@ public function add($uri, $controller, $requestMethod, $documentation = null)
                         }
                     }
                 }
+
+                ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Fetch user permissions
+$userPermissions = $GLOBALS['user_permissions'] ?? [];
+
+// Get required permission for the route
+$requiredPermission = $config['methods'][$httpMethod]['requiredPermission'] ?? null;
+
+// Check if user has the required permission
+if (!PermissionGuard::hasPermission($userPermissions, $requiredPermission)) {
+    $errorDetails = json_encode($userPermissions);
+    $this->handleError("Insufficient permissions. User Permissions: $errorDetails", 403);
+    return;
+}
+
                 $logger = new Logger($dbConnection = $dbManager->getConnection('default'));
                 // Call the controller method with the parameters
                 // TODO: Implement newly injected logger functionality throughout entire application
